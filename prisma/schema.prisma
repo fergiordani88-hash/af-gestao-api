@@ -74,6 +74,10 @@ model Client {
   pjInadimplencias        PJInadimplencia[]
   agroHistoricoSafras     AgroHistoricoSafra[]
   agroDRERurais           AgroDRERural[]
+  questionarioPJ          QuestionarioPJ?
+  questionarioAgro        QuestionarioAgro?
+  metas                   Meta[]
+  pjDreProjetados         PJDreProjetado[]
 }
 
 model Contact {
@@ -641,4 +645,96 @@ model PJInadimplencia {
   obs       String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// QUESTIONÁRIOS COMPLETOS
+// ─────────────────────────────────────────────
+
+// Questionário PJ — respostas armazenadas como JSON por seção
+model QuestionarioPJ {
+  id        String   @id @default(cuid())
+  clientId  String   @unique
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Seções (JSON com perguntas e respostas de cada seção)
+  identificacao   String @default("{}")
+  negocio         String @default("{}")
+  faturamento     String @default("{}")
+  fornecedores    String @default("{}")
+  estoque         String @default("{}")
+  equipe          String @default("{}")
+  bancos          String @default("{}")
+  impostos        String @default("{}")
+  gestaoFinanceira String @default("{}")
+  planejamento    String @default("{}")
+
+  // Metadados
+  percentualConclusao Float   @default(0)
+  dataUltimaEdicao    DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// Questionário Agro
+model QuestionarioAgro {
+  id        String   @id @default(cuid())
+  clientId  String   @unique
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  identificacao   String @default("{}")
+  produtividade   String @default("{}")
+  fornecedores    String @default("{}")
+  prestadores     String @default("{}")
+  logistica       String @default("{}")
+  comercializacao String @default("{}")
+  gestaoFinanceira String @default("{}")
+  bancos          String @default("{}")
+  patrimonio      String @default("{}")
+  sucessao        String @default("{}")
+
+  percentualConclusao Float    @default(0)
+  dataUltimaEdicao    DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// Metas de indicadores por cliente
+model Meta {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tipo      String   // "pj" | "agro"
+  indicador String   // "margLiq" | "ebitda" | "liquidezC" | "margem" etc.
+  label     String
+  valorMeta Float
+  unidade   String   @default("%") // "%" | "x" | "R$" | "sc/ha" etc.
+  prazo     DateTime
+  status    String   @default("em_andamento") // "em_andamento" | "atingida" | "nao_atingida"
+  obs       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// DRE Projetado PJ (orçamento anual)
+model PJDreProjetado {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  ano       Int
+  mes       Int      // 1-12
+
+  receitaBruta     Float @default(0)
+  cmv              Float @default(0)
+  despesasFixas    Float @default(0)
+  folha            Float @default(0)
+  proLabore        Float @default(0)
+  tributos         Float @default(0)
+  despFinanceiras  Float @default(0)
+  parcela          Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, ano, mes])
 }
