@@ -11,7 +11,7 @@ async function start() {
 
     app.listen(PORT, () => {
       console.log('')
-      console.log('🚀 AF Gestão API rodando!')
+      console.log('🚀 AF Gestao API rodando! v2')
       console.log(`   URL:      http://localhost:${PORT}`)
       console.log(`   Health:   http://localhost:${PORT}/health`)
       console.log(`   Ambiente: ${process.env.NODE_ENV ?? 'development'}`)
