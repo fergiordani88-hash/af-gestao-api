@@ -10,7 +10,7 @@ router.use(requireAuth, requireRole('ADMIN', 'CONSULTOR'))
 function calcDRE(d: {
   grossRevenue: number; deductions: number; cmv: number
   fixedExpenses: number; variableExpenses: number; financialExpenses: number; proLabore: number
-  totalDebt: number; grossRevenue: number
+  totalDebt: number
 }) {
   const net        = d.grossRevenue - d.deductions
   const grossProfit = net - d.cmv
