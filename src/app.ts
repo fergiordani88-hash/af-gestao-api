@@ -16,8 +16,22 @@ import dashboardRoutes   from './routes/dashboard'
 const app = express()
 
 // ── Middlewares globais ────────────────────────────────────────
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  process.env.FRONTEND_URL,
+  'https://af-gestao-xi.vercel.app',
+  'https://af-gestao.vercel.app',
+].filter(Boolean)
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true)
+    } else {
+      callback(new Error(`CORS: origem não permitida — ${origin}`))
+    }
+  },
   credentials: true,
 }))
 app.use(express.json({ limit: '10mb' }))
