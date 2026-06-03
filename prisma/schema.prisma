@@ -1,0 +1,250 @@
+// AF Gestão & Consultoria — Schema Prisma
+// SQLite para desenvolvimento local | PostgreSQL para produção (Supabase)
+// Troca automática via DATABASE_URL no .env
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = env("DB_PROVIDER") // "sqlite" local | "postgresql" produção
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("CONSULTOR")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clients          Client[]          @relation("Responsible")
+  diagnosticosPJ   DiagnosticoPJ[]
+  diagnosticosAgro DiagnosticoAgro[]
+  actionPlans      ActionPlan[]
+}
+
+model Client {
+  id            String   @id @default(cuid())
+  name          String
+  document      String   @unique
+  phone         String
+  email         String
+  city          String
+  state         String   @default("MT")
+  address       String?
+  zipCode       String?
+  segment       String
+  size          String   @default("MEDIA")
+  revenue       Float    @default(0)
+  status        String   @default("LEAD")
+  notes         String?
+  responsibleId String
+  responsible   User     @relation("Responsible", fields: [responsibleId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  contacts         Contact[]
+  attendances      Attendance[]
+  contracts        Contract[]
+  diagnosticosPJ   DiagnosticoPJ[]
+  diagnosticosAgro DiagnosticoAgro[]
+  actionPlans      ActionPlan[]
+  creditOps        CreditOperation[]
+  cashFlows        CashFlow[]
+  documents        Document[]
+}
+
+model Contact {
+  id       String  @id @default(cuid())
+  clientId String
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name     String
+  role     String?
+  phone    String?
+  email    String?
+  primary  Boolean @default(false)
+}
+
+model Attendance {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  date      DateTime
+  type      String
+  summary   String
+  nextSteps String?
+  createdAt DateTime @default(now())
+}
+
+model Contract {
+  id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id])
+  plan         String
+  description  String?
+  monthlyValue Float
+  setupFee     Float?
+  startDate    DateTime
+  renewalDate  DateTime
+  status       String   @default("ATIVO")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model DiagnosticoPJ {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  consultorId String
+  consultor   User     @relation(fields: [consultorId], references: [id])
+  period      String
+  segment     String?
+  employees   Int?
+
+  grossRevenue      Float @default(0)
+  deductions        Float @default(0)
+  cmv               Float @default(0)
+  fixedExpenses     Float @default(0)
+  variableExpenses  Float @default(0)
+  financialExpenses Float @default(0)
+  proLabore         Float @default(0)
+  totalDebt         Float @default(0)
+  shortTermDebt     Float @default(0)
+  bankName          String?
+
+  hasAccounting       Boolean @default(false)
+  hasERP              Boolean @default(false)
+  hasFinancialControl Boolean @default(false)
+
+  classification String?
+  grossMargin    Float?
+  netMargin      Float?
+  ebitda         Float?
+  breakeven      Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  actionPlans ActionPlan[]
+  documents   Document[]
+}
+
+model DiagnosticoAgro {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  consultorId String
+  consultor   User     @relation(fields: [consultorId], references: [id])
+  season      String
+
+  ownArea      Float @default(0)
+  leasedArea   Float @default(0)
+  leaseValueHa Float @default(0)
+  cultures     String
+
+  custeioValue Float  @default(0)
+  custeioBank  String?
+  custeioRate  Float  @default(0)
+  investValue  Float  @default(0)
+  investBank   String?
+  investRate   Float  @default(0)
+  cprValue     Float  @default(0)
+  cprBank      String?
+
+  propertyValue  Float @default(0)
+  machineryValue Float @default(0)
+
+  hasInsurance     Boolean @default(false)
+  hasPlanning      Boolean @default(false)
+  hasFinancialCtrl Boolean @default(false)
+
+  classification String?
+  totalRevenue   Float?
+  totalCost      Float?
+  margin         Float?
+  revenueHa      Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  actionPlans ActionPlan[]
+  documents   Document[]
+}
+
+model CashFlow {
+  id          String    @id @default(cuid())
+  clientId    String
+  client      Client    @relation(fields: [clientId], references: [id])
+  year        Int
+  month       Int
+  type        String
+  category    String
+  description String
+  value       Float
+  dueDate     DateTime
+  paidDate    DateTime?
+  status      String    @default("PENDENTE")
+  createdAt   DateTime  @default(now())
+}
+
+model CreditOperation {
+  id         String    @id @default(cuid())
+  clientId   String
+  client     Client    @relation(fields: [clientId], references: [id])
+  bank       String
+  creditLine String
+  value      Float
+  rate       Float
+  termMonths Int
+  guarantees String?
+  startDate  DateTime?
+  status     String    @default("ANALISE")
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model ActionPlan {
+  id                String           @id @default(cuid())
+  clientId          String
+  client            Client           @relation(fields: [clientId], references: [id])
+  consultorId       String
+  consultor         User             @relation(fields: [consultorId], references: [id])
+  diagnosticoPJId   String?
+  diagnosticoPJ     DiagnosticoPJ?   @relation(fields: [diagnosticoPJId], references: [id])
+  diagnosticoAgroId String?
+  diagnosticoAgro   DiagnosticoAgro? @relation(fields: [diagnosticoAgroId], references: [id])
+
+  area           String
+  action         String
+  objective      String
+  priority       String   @default("MEDIA")
+  deadline       DateTime
+  responsible    String
+  expectedResult String
+  status         String   @default("NAO_INICIADO")
+  notes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Document {
+  id                String           @id @default(cuid())
+  clientId          String
+  client            Client           @relation(fields: [clientId], references: [id])
+  diagnosticoPJId   String?
+  diagnosticoPJ     DiagnosticoPJ?   @relation(fields: [diagnosticoPJId], references: [id])
+  diagnosticoAgroId String?
+  diagnosticoAgro   DiagnosticoAgro? @relation(fields: [diagnosticoAgroId], references: [id])
+  name              String
+  type              String
+  url               String?
+  size              Int?
+  status            String   @default("RASCUNHO")
+  createdAt         DateTime @default(now())
+}
