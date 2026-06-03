@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
 import { requireAuth } from '../middleware/auth'
+import { getBenchmarkPJ, BENCHMARKS_AGRO } from '../lib/benchmarks'
 
 const router = Router()
 router.use(requireAuth)
@@ -12,24 +13,75 @@ function calcDRE(d: {
   caixa: number; aReceber: number; estoque: number; aFornecedores: number
   dividaTotal: number; dividaCP: number; diasEstoque: number
 }) {
-  const lucBruto    = d.receitaBruta - d.cmv
+  const rec         = d.receitaBruta
+  const lucBruto    = rec - d.cmv
   const despOp      = d.despesasFixas + d.folha + d.proLabore
   const ebitda      = lucBruto - despOp
   const lucLiq      = ebitda - d.tributos - d.despesasFinanceiras
-  const amortizacao = d.parcela - d.despesasFinanceiras
+  const amortizacao = Math.max(0, d.parcela - d.despesasFinanceiras)
   const sobraCaixa  = lucLiq - amortizacao
-  const margBruta   = d.receitaBruta > 0 ? lucBruto / d.receitaBruta : 0
-  const margEbitda  = d.receitaBruta > 0 ? ebitda / d.receitaBruta : 0
-  const margLiq     = d.receitaBruta > 0 ? lucLiq / d.receitaBruta : 0
-  const ncg         = d.aReceber + d.estoque - d.aFornecedores
-  const liquidezC   = d.aFornecedores > 0 ? (d.caixa + d.aReceber + d.estoque) / d.aFornecedores : 0
-  const liquidezS   = d.aFornecedores > 0 ? (d.caixa + d.aReceber) / d.aFornecedores : 0
+  const ativosCirc  = d.caixa + d.aReceber + d.estoque
+
+  // Margens
+  const margBruta   = rec > 0 ? lucBruto / rec : 0
+  const margEbitda  = rec > 0 ? ebitda   / rec : 0
+  const margLiq     = rec > 0 ? lucLiq   / rec : 0
+  const margCaixa   = rec > 0 ? sobraCaixa / rec : 0
+  const cmvRec      = rec > 0 ? d.cmv / rec : 0
+  const custoFixoRec= rec > 0 ? despOp / rec : 0
+
+  // Liquidez e solvência
+  const liquidezC   = d.aFornecedores > 0 ? ativosCirc / d.aFornecedores : (ativosCirc > 0 ? 99 : 0)
+  const liquidezS   = d.aFornecedores > 0 ? (d.caixa + d.aReceber) / d.aFornecedores : ((d.caixa + d.aReceber) > 0 ? 99 : 0)
+  const passivosTotal = d.aFornecedores + d.dividaCP
+  const solvencia   = passivosTotal > 0 ? ativosCirc / passivosTotal : 99
+
+  // Endividamento
   const cobDivida   = d.parcela > 0 ? ebitda / d.parcela : 0
-  const peBS        = margBruta > 0 ? despOp / margBruta : 0 // ponto equilíbrio
+  const endivRec    = rec > 0 ? d.dividaTotal / rec : 0
+  const capitalTerc = ativosCirc > 0 ? d.dividaTotal / ativosCirc : 0
+  const grauAlavancagem = ativosCirc > 0 ? d.dividaTotal / ativosCirc : 0
+  const caixaSaidas = (d.cmv + d.parcela) > 0 ? d.caixa / (d.cmv + d.parcela) : 0
+
+  // Capital de giro
+  const ncg         = d.aReceber + d.estoque - d.aFornecedores
+  const giroEstoque = d.cmv > 0 ? (d.estoque / d.cmv) * 30 : 0  // dias
+
+  // Ponto de equilíbrio
+  const peBS        = margBruta > 0 ? despOp / margBruta : 0
+
+  // Diagnóstico qualitativo automático
+  const diagViabilidade  = sobraCaixa > 0 ? 'Viável no caixa real' : (lucLiq > 0 ? 'Lucra mas caixa apertado' : 'Inviável operacionalmente')
+  const diagResultado    = ebitda > 0 ? 'EBITDA positivo — operação gerando resultado' : 'EBITDA negativo — operação consumindo caixa'
+  const diagLiquidez     = liquidezC >= 1.5 ? 'Confortável' : (liquidezC >= 1.2 ? 'Adequada' : 'Atenção — abaixo do mínimo')
+  const diagEndividamento= endivRec <= 0.30 ? 'Baixo' : (endivRec <= 0.50 ? 'Moderado' : 'Elevado — risco ao caixa')
+  const diagCobertura    = cobDivida >= 2 ? 'Confortável' : (cobDivida >= 1 ? 'Adequada' : 'Crítico — EBITDA não cobre parcela')
+  const prioridadeFinanceira = sobraCaixa < 0 ? 'Reestruturação urgente de caixa e dívidas'
+    : ebitda < rec * 0.05 ? 'Melhorar margem e reduzir custos'
+    : endivRec > 0.4 ? 'Reduzir endividamento e estruturar crédito'
+    : 'Escalar operação com disciplina financeira'
+  const leituraCaixa = sobraCaixa > 0 ? 'Paga as contas e sobra caixa'
+    : lucLiq > 0 ? 'Lucra mas parcela consome o caixa'
+    : 'Não cobre os custos operacionais'
+
+  // Classificação geral
+  const pontuacao = [
+    margLiq >= 0.05 ? 2 : margLiq > 0 ? 1 : 0,
+    liquidezC >= 1.5 ? 2 : liquidezC >= 1.2 ? 1 : 0,
+    cobDivida >= 2 ? 2 : cobDivida >= 1 ? 1 : 0,
+    endivRec <= 0.3 ? 2 : endivRec <= 0.5 ? 1 : 0,
+    sobraCaixa > 0 ? 2 : 1,
+  ].reduce((a, b) => a + b, 0)
+
+  const classificacao = pontuacao >= 8 ? 'saudavel' : pontuacao >= 5 ? 'atencao' : pontuacao >= 3 ? 'critico' : 'reestruturacao'
 
   return {
     lucBruto, despOp, ebitda, lucLiq, amortizacao, sobraCaixa,
-    margBruta, margEbitda, margLiq, ncg, liquidezC, liquidezS, cobDivida, peBS,
+    margBruta, margEbitda, margLiq, margCaixa, cmvRec, custoFixoRec,
+    liquidezC, liquidezS, solvencia, cobDivida, endivRec, capitalTerc,
+    grauAlavancagem, caixaSaidas, ncg, giroEstoque, peBS,
+    diagViabilidade, diagResultado, diagLiquidez, diagEndividamento,
+    diagCobertura, prioridadeFinanceira, leituraCaixa, classificacao,
   }
 }
 
@@ -294,6 +346,18 @@ router.post('/stress-test/premissas', async (req: Request, res: Response) => {
   } else {
     res.status(201).json(await prisma.pJStressTest.create({ data: req.body }))
   }
+})
+
+// ── Benchmarks ───────────────────────────────────────────────
+router.get('/benchmark/pj/:segmento', (req: Request, res: Response) => {
+  const bm = getBenchmarkPJ(req.params.segmento)
+  res.json(bm)
+})
+
+router.get('/benchmark/agro/:cultura', (req: Request, res: Response) => {
+  const key = req.params.cultura.toUpperCase()
+  const bm = BENCHMARKS_AGRO[key] ?? BENCHMARKS_AGRO['SOJA']
+  res.json(bm)
 })
 
 export default router
