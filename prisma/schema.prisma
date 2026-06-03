@@ -62,6 +62,14 @@ model Client {
   agroReceitas     AgroReceita[]
   agroCustosFixos  AgroCustoFixo[]
   agroPatrimonios  AgroPatrimonio[]
+  pjDres           PJDre[]
+  pjRecebimentos   PJRecebimento[]
+  pjPagamentos     PJPagamento[]
+  pjContratos      PJContrato[]
+  pjDespesas       PJDespesa[]
+  pjReceitas       PJReceita[]
+  pjCustosFixos    PJCustoFixo[]
+  pjStressTests    PJStressTest[]
 }
 
 model Contact {
@@ -353,4 +361,140 @@ model AgroPatrimonio {
   obs           String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// MÓDULO PJ COMPLETO
+// ─────────────────────────────────────────────
+
+// Snapshot do DRE (entradas do formulário)
+model PJDre {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  periodo   String   @default("mensal") // mensal | anual
+
+  // Entradas
+  receitaBruta        Float @default(0)
+  cmv                 Float @default(0)
+  despesasFixas       Float @default(0)
+  folha               Float @default(0)
+  proLabore           Float @default(0)
+  tributos            Float @default(0)
+  despesasFinanceiras Float @default(0)
+  parcela             Float @default(0)
+
+  // Ativos / passivos
+  caixa               Float @default(0)
+  aReceber            Float @default(0)
+  estoque             Float @default(0)
+  aFornecedores       Float @default(0)
+  dividaTotal         Float @default(0)
+  dividaCP            Float @default(0) // curto prazo
+
+  // Premissas extras
+  diasEstoque         Float @default(30)
+  lucroInformadoSocio Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Formas de recebimento
+model PJRecebimento {
+  id          String  @id @default(cuid())
+  clientId    String
+  client      Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  forma       String  // Boleto | Cartão débito | Cartão crédito | PIX | Dinheiro | Cheque | Crediário
+  percentual  Float   @default(0) // % das vendas
+  prazoMedio  Int     @default(0) // dias
+  parcelas    Int     @default(1)
+  obs         String?
+  createdAt   DateTime @default(now())
+}
+
+// Formas de pagamento a fornecedores
+model PJPagamento {
+  id          String  @id @default(cuid())
+  clientId    String
+  client      Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  forma       String  // Boleto/prazo | Transferência | Cartão/antecipado | À vista/PIX
+  percentual  Float   @default(0)
+  prazoMedio  Int     @default(0)
+  parcelas    Int     @default(1)
+  obs         String?
+  createdAt   DateTime @default(now())
+}
+
+// Contratos PJ (mesma estrutura do Agro)
+model PJContrato {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  modalidade      String
+  banco           String
+  numeroContrato  String?
+  dataContratacao DateTime
+  valorTomado     Float
+  totalParcelas   Int
+  parcelaAtual    Int
+  periodicidade   String
+  taxa            Float
+  vencimento      DateTime
+  valorParcela    Float
+  obs             String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Despesas PJ
+model PJDespesa {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  data      DateTime
+  tipo      String
+  origem    String
+  descricao String
+  valor     Float
+  createdAt DateTime @default(now())
+}
+
+// Receitas PJ
+model PJReceita {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  data      DateTime
+  origem    String
+  tipo      String
+  descricao String
+  valor     Float
+  createdAt DateTime @default(now())
+}
+
+// Custos fixos PJ
+model PJCustoFixo {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  categoria   String
+  item        String
+  valorMensal Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Premissas do Stress Test
+model PJStressTest {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  variacaoQueda   Float    @default(-0.3)  // ex: -0.3 = -30%
+  variacaoAlta    Float    @default(0.3)
+  pctCustoVar     Float    @default(0.48)  // % custo variável / receita
+  pctDespFixaVar  Float    @default(0.05)  // % despesa fixa que varia com vendas
+  saldoInicial    Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
