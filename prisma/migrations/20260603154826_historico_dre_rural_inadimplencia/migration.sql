@@ -1,0 +1,130 @@
+-- CreateTable
+CREATE TABLE "PJHistoricoIndicadores" (
+    "id" TEXT NOT NULL,
+    "clientId" TEXT NOT NULL,
+    "periodo" TEXT NOT NULL,
+    "ano" INTEGER NOT NULL,
+    "mes" INTEGER NOT NULL,
+    "receitaBruta" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "cmv" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "despesasFixas" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "folha" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "proLabore" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "tributos" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "despesasFinanceiras" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "parcela" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "lucBruto" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "ebitda" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "lucLiq" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "sobraCaixa" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "margBruta" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "margEbitda" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "margLiq" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "liquidezC" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "cobDivida" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "ncg" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "peBS" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "classificacao" TEXT NOT NULL DEFAULT 'atencao',
+    "caixa" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "aReceber" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "estoque" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "dividaTotal" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PJHistoricoIndicadores_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AgroHistoricoSafra" (
+    "id" TEXT NOT NULL,
+    "clientId" TEXT NOT NULL,
+    "safra" TEXT NOT NULL,
+    "tipo" TEXT NOT NULL,
+    "totalArea" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "totalReceita" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "totalCusto" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "totalResultado" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "margem" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "revenueHa" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "resultadoHa" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "totalDivida" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "comprometimento" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "culturas" TEXT NOT NULL DEFAULT '[]',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AgroHistoricoSafra_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AgroDRERural" (
+    "id" TEXT NOT NULL,
+    "clientId" TEXT NOT NULL,
+    "safra" TEXT NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "recSojaVolume" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "recSojaPreco" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "recMilhoVolume" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "recMilhoPreco" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "recOutras" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "custoSementesHa" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "custoFertilizHa" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "custoDefensivosHa" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "custoDieselHa" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "custoServicosHa" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "custoOutrosHa" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "totalAreaCusteada" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "arrendamentoHa" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "areaArrendada" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "folha" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "proLabore" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "contabilidade" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "energia" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "internet" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "manutencaoVeic" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "seguros" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "outrasAdmin" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "despFinanceiras" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "amortizacoes" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "depreciacao" DOUBLE PRECISION NOT NULL DEFAULT 0,
+
+    CONSTRAINT "AgroDRERural_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PJInadimplencia" (
+    "id" TEXT NOT NULL,
+    "clientId" TEXT NOT NULL,
+    "cliente" TEXT NOT NULL,
+    "documento" TEXT,
+    "valor" DOUBLE PRECISION NOT NULL,
+    "dataVenc" TIMESTAMP(3) NOT NULL,
+    "diasAtraso" INTEGER NOT NULL DEFAULT 0,
+    "status" TEXT NOT NULL DEFAULT 'em_aberto',
+    "obs" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "PJInadimplencia_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PJHistoricoIndicadores_clientId_periodo_key" ON "PJHistoricoIndicadores"("clientId", "periodo");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "AgroHistoricoSafra_clientId_safra_key" ON "AgroHistoricoSafra"("clientId", "safra");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "AgroDRERural_clientId_safra_key" ON "AgroDRERural"("clientId", "safra");
+
+-- AddForeignKey
+ALTER TABLE "PJHistoricoIndicadores" ADD CONSTRAINT "PJHistoricoIndicadores_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AgroHistoricoSafra" ADD CONSTRAINT "AgroHistoricoSafra_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AgroDRERural" ADD CONSTRAINT "AgroDRERural_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PJInadimplencia" ADD CONSTRAINT "PJInadimplencia_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;

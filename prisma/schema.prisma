@@ -69,7 +69,11 @@ model Client {
   pjDespesas       PJDespesa[]
   pjReceitas       PJReceita[]
   pjCustosFixos    PJCustoFixo[]
-  pjStressTests    PJStressTest[]
+  pjStressTests           PJStressTest[]
+  pjHistoricoIndicadores  PJHistoricoIndicadores[]
+  pjInadimplencias        PJInadimplencia[]
+  agroHistoricoSafras     AgroHistoricoSafra[]
+  agroDRERurais           AgroDRERural[]
 }
 
 model Contact {
@@ -497,4 +501,144 @@ model PJStressTest {
   saldoInicial    Float    @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// HISTÓRICO DE INDICADORES (PJ + Agro)
+// ─────────────────────────────────────────────
+
+// Snapshot mensal dos indicadores PJ
+model PJHistoricoIndicadores {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  periodo   String   // "2025-01", "2025-02" etc
+  ano       Int
+  mes       Int
+
+  // DRE
+  receitaBruta        Float @default(0)
+  cmv                 Float @default(0)
+  despesasFixas       Float @default(0)
+  folha               Float @default(0)
+  proLabore           Float @default(0)
+  tributos            Float @default(0)
+  despesasFinanceiras Float @default(0)
+  parcela             Float @default(0)
+
+  // Calculados e salvos
+  lucBruto    Float @default(0)
+  ebitda      Float @default(0)
+  lucLiq      Float @default(0)
+  sobraCaixa  Float @default(0)
+  margBruta   Float @default(0)
+  margEbitda  Float @default(0)
+  margLiq     Float @default(0)
+  liquidezC   Float @default(0)
+  cobDivida   Float @default(0)
+  ncg         Float @default(0)
+  peBS        Float @default(0)
+  classificacao String @default("atencao")
+
+  // Balanço
+  caixa       Float @default(0)
+  aReceber    Float @default(0)
+  estoque     Float @default(0)
+  dividaTotal Float @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@unique([clientId, periodo])
+}
+
+// Snapshot de safra Agro
+model AgroHistoricoSafra {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  safra     String   // "2023/24", "2024/25"
+  tipo      String   // "historico" | "previsao"
+
+  // Resumo da safra
+  totalArea       Float @default(0)
+  totalReceita    Float @default(0)
+  totalCusto      Float @default(0)
+  totalResultado  Float @default(0)
+  margem          Float @default(0)
+  revenueHa       Float @default(0)
+  resultadoHa     Float @default(0)
+  totalDivida     Float @default(0)
+  comprometimento Float @default(0) // dívida/receita
+
+  // Por cultura (JSON)
+  culturas  String @default("[]") // [{cultura, area, produtividade, cotacao, resultado}]
+
+  createdAt DateTime @default(now())
+
+  @@unique([clientId, safra])
+}
+
+// DRE Rural — demonstrativo formal do produtor
+model AgroDRERural {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  safra     String
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  // === RECEITAS ===
+  recSojaVolume      Float @default(0) // sacas vendidas
+  recSojaPreco       Float @default(0) // R$/sc
+  recMilhoVolume     Float @default(0)
+  recMilhoPreco      Float @default(0)
+  recOutras          Float @default(0) // outras receitas
+
+  // === CUSTO DA ATIVIDADE (variáveis) ===
+  custoSementesHa    Float @default(0)
+  custoFertilizHa    Float @default(0)
+  custoDefensivosHa  Float @default(0)
+  custoDieselHa      Float @default(0)
+  custoServicosHa    Float @default(0) // plantio, colheita, pulv.
+  custoOutrosHa      Float @default(0)
+  totalAreaCusteada  Float @default(0) // ha
+
+  // === CUSTO DE ARRENDAMENTO ===
+  arrendamentoHa     Float @default(0) // R$/ha
+  areaArrendada      Float @default(0)
+
+  // === DESPESAS ADMINISTRATIVAS ===
+  folha              Float @default(0)
+  proLabore          Float @default(0)
+  contabilidade      Float @default(0)
+  energia            Float @default(0)
+  internet           Float @default(0)
+  manutencaoVeic     Float @default(0)
+  seguros            Float @default(0)
+  outrasAdmin        Float @default(0)
+
+  // === FINANCEIRO ===
+  despFinanceiras    Float @default(0) // juros pagos
+  amortizacoes       Float @default(0) // amortização de principal
+
+  // === DEPRECIAÇÃO (opcional) ===
+  depreciacao        Float @default(0)
+
+  @@unique([clientId, safra])
+}
+
+// Inadimplência PJ — aging da carteira
+model PJInadimplencia {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  cliente   String   // nome do devedor
+  documento String?  // CPF/CNPJ
+  valor     Float
+  dataVenc  DateTime
+  diasAtraso Int     @default(0)
+  status    String   @default("em_aberto") // em_aberto | negociando | renegociado | perdido
+  obs       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
