@@ -12,6 +12,7 @@ import diagnosticosRoutes from './routes/diagnosticos'
 import financeiroRoutes  from './routes/financeiro'
 import actionPlansRoutes from './routes/actionPlans'
 import dashboardRoutes   from './routes/dashboard'
+import agroCompletoRoutes from './routes/agroCompleto'
 
 const app = express()
 
@@ -61,6 +62,7 @@ app.use('/api/diagnosticos', diagnosticosRoutes)
 app.use('/api/financeiro',   financeiroRoutes)
 app.use('/api/action-plans', actionPlansRoutes)
 app.use('/api/dashboard',    dashboardRoutes)
+app.use('/api/agro',         agroCompletoRoutes)
 
 // ── 404 ────────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ error: 'Rota não encontrada.' }))

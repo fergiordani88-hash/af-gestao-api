@@ -56,6 +56,12 @@ model Client {
   creditOps        CreditOperation[]
   cashFlows        CashFlow[]
   documents        Document[]
+  agroProducoes    AgroProducao[]
+  agroContratos    AgroContrato[]
+  agroDespesas     AgroDespesa[]
+  agroReceitas     AgroReceita[]
+  agroCustosFixos  AgroCustoFixo[]
+  agroPatrimonios  AgroPatrimonio[]
 }
 
 model Contact {
@@ -247,4 +253,104 @@ model Document {
   size              Int?
   status            String   @default("RASCUNHO")
   createdAt         DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────
+// MÓDULO AGRO COMPLETO
+// ─────────────────────────────────────────────
+
+// Produção histórica (triênio) + previsão
+model AgroProducao {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  safra     String   // ex: "2023/24", "2024/25", "2025/26"
+  tipo      String   // "historico" | "previsao"
+  cultura   String   // "Soja" | "Milho 2a" | "Algodao" etc
+  ordem     String   // "principal" | "segunda"
+  cotacao   Float    @default(0)
+  area      Float    @default(0)
+  produtividade Float @default(0)
+  custoPorHa    Float @default(0)
+  areaArrendada Float @default(0)
+  custoArrendHa Float @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Contratos de crédito individuais
+model AgroContrato {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  modalidade    String   // Capital de giro, Repactuação, Investimento CDI, BNDES Finame, Custeio, CPR etc
+  banco         String
+  numeroContrato String?
+  dataContratacao DateTime
+  valorTomado   Float
+  totalParcelas Int
+  parcelaAtual  Int
+  periodicidade String   // Mensal | Anual | Semestral | Trimestral | Único
+  taxa          Float    // % ao período
+  vencimento    DateTime // data do próximo vencimento
+  valorParcela  Float
+  obs           String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// Despesas não bancárias
+model AgroDespesa {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  data      DateTime
+  tipo      String   // Salários | Custo da atividade | Investimento | Cartão de crédito | Contas comércio | Previsões | Outros
+  origem    String
+  descricao String
+  valor     Float
+  createdAt DateTime @default(now())
+}
+
+// Receitas
+model AgroReceita {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  data      DateTime
+  origem    String
+  tipo      String   // Recebimento | Antecipação | CPR | Outros
+  descricao String
+  valor     Float
+  createdAt DateTime @default(now())
+}
+
+// Custos fixos por categoria
+model AgroCustoFixo {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  categoria String   // Custos recorrentes | Folha | Contábil | Tecnologia | Marketing | Operacional | Bancário | Consórcios
+  item      String
+  valorMensal Float  @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Patrimônio
+model AgroPatrimonio {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  categoria     String   // Máquinas | Equipamentos | Veículos | Imóveis rurais | Imóveis urbanos | Rebanho
+  descricao     String
+  identificacao String?
+  valorAvaliado Float    @default(0)
+  possuiOnus    Boolean  @default(false)
+  tipoOnus      String?
+  credor        String?
+  valorOnus     Float    @default(0)
+  obs           String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
