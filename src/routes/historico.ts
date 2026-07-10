@@ -183,13 +183,14 @@ function calcDRERural(d: any) {
   const recFeijao = (d.recFeijaoVolume ?? 0) * (d.recFeijaoPreco ?? 0)
   const recBruta  = recSoja + recMilho + recFeijao + (d.recOutras ?? 0)
 
-  // Custo da atividade
+  // Custo da atividade — usa total direto se preenchido, senão calcula via per-ha (dados legados)
   const area      = d.totalAreaCusteada ?? 0
-  const custoAtiv = area * (
+  const custoAtivPerHa = area * (
     (d.custoSementesHa ?? 0) + (d.custoFertilizHa ?? 0) +
     (d.custoDefensivosHa ?? 0) + (d.custoDieselHa ?? 0) +
     (d.custoServicosHa ?? 0) + (d.custoOutrosHa ?? 0)
   )
+  const custoAtiv = (d.custoAtivTotal ?? 0) > 0 ? (d.custoAtivTotal ?? 0) : custoAtivPerHa
 
   // Arrendamento
   const arrendamento = (d.areaArrendada ?? 0) * (d.arrendamentoHa ?? 0)

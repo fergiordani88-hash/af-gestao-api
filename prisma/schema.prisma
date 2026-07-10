@@ -601,13 +601,15 @@ model AgroDRERural {
   recOutras          Float @default(0) // outras receitas
 
   // === CUSTO DA ATIVIDADE (variáveis) ===
+  custoAtivTotal     Float @default(0) // total R$ — campo principal do DRE
+  totalAreaCusteada  Float @default(0) // ha
+  // Detalhamento (R$/ha) — compõem o custo para análise
   custoSementesHa    Float @default(0)
   custoFertilizHa    Float @default(0)
   custoDefensivosHa  Float @default(0)
   custoDieselHa      Float @default(0)
-  custoServicosHa    Float @default(0) // plantio, colheita, pulv.
+  custoServicosHa    Float @default(0)
   custoOutrosHa      Float @default(0)
-  totalAreaCusteada  Float @default(0) // ha
 
   // === CUSTO DE ARRENDAMENTO ===
   arrendamentoHa     Float @default(0) // R$/ha
