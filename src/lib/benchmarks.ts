@@ -139,6 +139,18 @@ export const benchmarkGirassolMT: BenchmarkMap = {
   endivPatrimonio: { label: 'Endividamento/Patrimônio',   unit: '%',    min: 0,     ideal_min: 20,    ideal_max: 40,    fonte: 'CNA/FGV Agro 2024', ano: '2025', descricao: 'Relação entre dívida e patrimônio.' },
 }
 
+// ── Agro: Feijão irrigado (Pivô) Mato Grosso ─────────────────
+export const benchmarkFeijaoMT: BenchmarkMap = {
+  produtividade:   { label: 'Produtividade',              unit: 'sc/ha', min: 25,    ideal_min: 40,    ideal_max: 55,    fonte: 'CONAB/SENAR-MT 2024/25 (irrigado: 40–55 sc/ha)', ano: '2025', descricao: 'Sacas de feijão por hectare em sistema irrigado por pivô central.' },
+  custoPorHa:      { label: 'Custo Operacional/ha',       unit: 'R$',   min: 0,     ideal_min: 5500,  ideal_max: 7000,  fonte: 'CONAB/Embrapa 2024 (irrigado MT: R$ 5.800–6.800/ha)', ano: '2025', descricao: 'Custo operacional total por hectare de feijão irrigado.' },
+  custoPorSaca:    { label: 'Custo por Saca',             unit: 'R$',   min: 0,     ideal_min: 110,   ideal_max: 155,   fonte: 'Estimativa: R$ 6.200/ha ÷ 47 sc/ha = R$ 131,9/sc', ano: '2025', descricao: 'Custo mínimo operacional por saca de feijão produzida.' },
+  margem:          { label: 'Margem Bruta',               unit: '%',    min: 0,     ideal_min: 15,    ideal_max: 35,    fonte: 'CONAB 2024 (preço médio R$ 180–230/sc; margem ~20–30%)', ano: '2025', descricao: 'Margem percentual sobre o custo operacional efetivo.' },
+  pe:              { label: 'Ponto de Equilíbrio',        unit: 'sc/ha',min: 0,     ideal_min: 28,    ideal_max: 38,    fonte: 'Estimativa: R$ 6.200/ha ÷ R$ 200/sc = 31 sc/ha', ano: '2025', descricao: 'Produtividade mínima para cobrir o custo operacional a R$ 200/sc.' },
+  rentabilidadeHa: { label: 'Rentabilidade/ha',           unit: 'R$',   min: 0,     ideal_min: 2000,  ideal_max: 5500,  fonte: 'CONAB 2024 (receita ~R$ 9.400/ha − custo ~R$ 6.200/ha = ~R$ 3.200/ha)', ano: '2025', descricao: 'Resultado financeiro por hectare de feijão irrigado.' },
+  comprometimento: { label: 'Comprometimento da Receita', unit: '%',    min: 0,     ideal_min: 10,    ideal_max: 25,    fonte: 'Referência prudencial agro MT 2024', ano: '2025', descricao: 'Parcela do endividamento que compromete a receita da safra.' },
+  endivPatrimonio: { label: 'Endividamento/Patrimônio',   unit: '%',    min: 0,     ideal_min: 20,    ideal_max: 40,    fonte: 'CNA/FGV Agro 2024', ano: '2025', descricao: 'Relação entre dívida total e patrimônio rural.' },
+}
+
 export const BENCHMARKS_AGRO: Record<string, BenchmarkMap> = {
   SOJA:     benchmarkSojaMT,
   MILHO:    benchmarkMilhoMT,
@@ -146,6 +158,7 @@ export const BENCHMARKS_AGRO: Record<string, BenchmarkMap> = {
   SORGO:    benchmarkSorgoMT,
   MILHETO:  benchmarkMilhetoMT,
   GIRASSOL: benchmarkGirassolMT,
+  FEIJAO:   benchmarkFeijaoMT,
 }
 
 export function getBenchmarkPJ(segment: string): BenchmarkMap {
