@@ -192,8 +192,8 @@ function calcDRERural(d: any) {
   )
   const custoAtiv = (d.custoAtivTotal ?? 0) > 0 ? (d.custoAtivTotal ?? 0) : custoAtivPerHa
 
-  // Arrendamento
-  const arrendamento = (d.areaArrendada ?? 0) * (d.arrendamentoHa ?? 0)
+  // Arrendamento: taxa em sc soja/ha → converte para R$ usando preço da soja
+  const arrendamento = (d.areaArrendada ?? 0) * (d.arrendamentoHa ?? 0) * (d.recSojaPreco ?? 0)
 
   // Lucro bruto da atividade
   const lucBruto  = recBruta - custoAtiv - arrendamento
