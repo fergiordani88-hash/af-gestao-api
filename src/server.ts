@@ -4,10 +4,23 @@ import { prisma } from './lib/prisma'
 
 const PORT = Number(process.env.PORT ?? 3333)
 
+async function runMigrations() {
+  const cols = [
+    `ALTER TABLE "AgroDreRural" ADD COLUMN IF NOT EXISTS "recFeijaoVolume" DOUBLE PRECISION NOT NULL DEFAULT 0`,
+    `ALTER TABLE "AgroDreRural" ADD COLUMN IF NOT EXISTS "recFeijaoPreco"  DOUBLE PRECISION NOT NULL DEFAULT 0`,
+    `ALTER TABLE "AgroDreRural" ADD COLUMN IF NOT EXISTS "custoAtivTotal"  DOUBLE PRECISION NOT NULL DEFAULT 0`,
+  ]
+  for (const sql of cols) {
+    try { await prisma.$executeRawUnsafe(sql) } catch (e) { console.warn('migration skip:', e) }
+  }
+  console.log('✅ Colunas verificadas/criadas')
+}
+
 async function start() {
   try {
     await prisma.$connect()
     console.log('✅ Banco de dados conectado')
+    await runMigrations()
 
     app.listen(PORT, () => {
       console.log('')
