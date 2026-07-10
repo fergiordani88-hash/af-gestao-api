@@ -596,6 +596,8 @@ model AgroDRERural {
   recSojaPreco       Float @default(0) // R$/sc
   recMilhoVolume     Float @default(0)
   recMilhoPreco      Float @default(0)
+  recFeijaoVolume    Float @default(0)
+  recFeijaoPreco     Float @default(0)
   recOutras          Float @default(0) // outras receitas
 
   // === CUSTO DA ATIVIDADE (variáveis) ===

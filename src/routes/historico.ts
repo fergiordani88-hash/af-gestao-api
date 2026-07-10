@@ -180,7 +180,8 @@ function calcDRERural(d: any) {
   // Receitas
   const recSoja   = (d.recSojaVolume ?? 0) * (d.recSojaPreco ?? 0)
   const recMilho  = (d.recMilhoVolume ?? 0) * (d.recMilhoPreco ?? 0)
-  const recBruta  = recSoja + recMilho + (d.recOutras ?? 0)
+  const recFeijao = (d.recFeijaoVolume ?? 0) * (d.recFeijaoPreco ?? 0)
+  const recBruta  = recSoja + recMilho + recFeijao + (d.recOutras ?? 0)
 
   // Custo da atividade
   const area      = d.totalAreaCusteada ?? 0
@@ -222,7 +223,7 @@ function calcDRERural(d: any) {
     ? (custoAtiv + arrendamento + despAdmin) / d.recSojaPreco : 0
 
   return {
-    recSoja, recMilho, recBruta, custoAtiv, arrendamento,
+    recSoja, recMilho, recFeijao, recBruta, custoAtiv, arrendamento,
     lucBruto, margBruta, despAdmin, ebitda, margEbitda,
     depreciacao, ebit, despFin, amort, lucLiq, sobraCaixa,
     margLiq, custoPorHaTotal, peVolumeTotal,

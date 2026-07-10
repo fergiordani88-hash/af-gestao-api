@@ -1,0 +1,3 @@
+-- AlterTable: add feijao fields to AgroDreRural
+ALTER TABLE "AgroDreRural" ADD COLUMN IF NOT EXISTS "recFeijaoVolume" DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE "AgroDreRural" ADD COLUMN IF NOT EXISTS "recFeijaoPreco" DOUBLE PRECISION NOT NULL DEFAULT 0;
