@@ -6,9 +6,9 @@ const PORT = Number(process.env.PORT ?? 3333)
 
 async function runMigrations() {
   const cols = [
-    `ALTER TABLE "AgroDreRural" ADD COLUMN IF NOT EXISTS "recFeijaoVolume" DOUBLE PRECISION NOT NULL DEFAULT 0`,
-    `ALTER TABLE "AgroDreRural" ADD COLUMN IF NOT EXISTS "recFeijaoPreco"  DOUBLE PRECISION NOT NULL DEFAULT 0`,
-    `ALTER TABLE "AgroDreRural" ADD COLUMN IF NOT EXISTS "custoAtivTotal"  DOUBLE PRECISION NOT NULL DEFAULT 0`,
+    `ALTER TABLE "AgroDRERural" ADD COLUMN IF NOT EXISTS "recFeijaoVolume" DOUBLE PRECISION NOT NULL DEFAULT 0`,
+    `ALTER TABLE "AgroDRERural" ADD COLUMN IF NOT EXISTS "recFeijaoPreco"  DOUBLE PRECISION NOT NULL DEFAULT 0`,
+    `ALTER TABLE "AgroDRERural" ADD COLUMN IF NOT EXISTS "custoAtivTotal"  DOUBLE PRECISION NOT NULL DEFAULT 0`,
   ]
   for (const sql of cols) {
     try { await prisma.$executeRawUnsafe(sql) } catch (_) { /* coluna já existe */ }
