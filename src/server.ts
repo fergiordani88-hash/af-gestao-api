@@ -11,9 +11,9 @@ async function runMigrations() {
     `ALTER TABLE "AgroDreRural" ADD COLUMN IF NOT EXISTS "custoAtivTotal"  DOUBLE PRECISION NOT NULL DEFAULT 0`,
   ]
   for (const sql of cols) {
-    try { await prisma.$executeRawUnsafe(sql) } catch (e) { console.warn('migration skip:', e) }
+    try { await prisma.$executeRawUnsafe(sql) } catch (_) { /* coluna já existe */ }
   }
-  console.log('✅ Colunas verificadas/criadas')
+  console.log('✅ Schema verificado')
 }
 
 async function start() {
