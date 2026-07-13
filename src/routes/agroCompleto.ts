@@ -1,6 +1,10 @@
 import { Router, Request, Response } from 'express'
+import multer from 'multer'
 import { prisma } from '../lib/prisma'
 import { requireAuth } from '../middleware/auth'
+import { parsePdfContract } from '../lib/pdfContractParser'
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } })
 
 const router = Router()
 router.use(requireAuth)
@@ -348,6 +352,17 @@ router.get('/fluxo-mensal/:clientId', async (req: Request, res: Response) => {
   })
 
   res.json({ mensal: resultado, porAno, saldoFinal: saldo })
+})
+
+// POST /agro/contratos/import-pdf — extrai campos de contrato de crédito de um PDF
+router.post('/contratos/import-pdf', upload.single('pdf'), async (req: Request, res: Response) => {
+  if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' })
+  try {
+    const fields = await parsePdfContract(req.file.buffer)
+    return res.json(fields)
+  } catch (e: any) {
+    return res.status(422).json({ error: 'Erro ao processar PDF: ' + e.message })
+  }
 })
 
 export default router

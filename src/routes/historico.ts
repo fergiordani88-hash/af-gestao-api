@@ -286,9 +286,9 @@ router.post('/agro/dre-rural', async (req: Request, res: Response) => {
         d.recFeijaoVolume ?? 0, d.recFeijaoPreco ?? 0, d.custoAtivTotal ?? 0,
         base.clientId, base.safra
       )
-      dre.recFeijaoVolume = d.recFeijaoVolume ?? 0
-      dre.recFeijaoPreco  = d.recFeijaoPreco  ?? 0
-      dre.custoAtivTotal  = d.custoAtivTotal  ?? 0
+      ;(dre as any).recFeijaoVolume = d.recFeijaoVolume ?? 0
+      ;(dre as any).recFeijaoPreco  = d.recFeijaoPreco  ?? 0
+      ;(dre as any).custoAtivTotal  = d.custoAtivTotal  ?? 0
     } catch (_) { /* colunas ainda não existem — ok, serão zeradas */ }
     res.json({ ...dre, calculado: calcDRERural(dre) })
   } catch (err: any) {
