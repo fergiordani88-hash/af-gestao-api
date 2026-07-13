@@ -4,17 +4,38 @@ import { prisma } from './lib/prisma'
 
 const PORT = Number(process.env.PORT ?? 3333)
 
+const MIGRATION_COLS = [
+  `ALTER TABLE "AgroDRERural" ADD COLUMN IF NOT EXISTS "recFeijaoVolume" DOUBLE PRECISION NOT NULL DEFAULT 0`,
+  `ALTER TABLE "AgroDRERural" ADD COLUMN IF NOT EXISTS "recFeijaoPreco"  DOUBLE PRECISION NOT NULL DEFAULT 0`,
+  `ALTER TABLE "AgroDRERural" ADD COLUMN IF NOT EXISTS "custoAtivTotal"  DOUBLE PRECISION NOT NULL DEFAULT 0`,
+]
+
 async function runMigrations() {
-  const cols = [
-    `ALTER TABLE "AgroDRERural" ADD COLUMN IF NOT EXISTS "recFeijaoVolume" DOUBLE PRECISION NOT NULL DEFAULT 0`,
-    `ALTER TABLE "AgroDRERural" ADD COLUMN IF NOT EXISTS "recFeijaoPreco"  DOUBLE PRECISION NOT NULL DEFAULT 0`,
-    `ALTER TABLE "AgroDRERural" ADD COLUMN IF NOT EXISTS "custoAtivTotal"  DOUBLE PRECISION NOT NULL DEFAULT 0`,
-  ]
-  for (const sql of cols) {
-    try { await prisma.$executeRawUnsafe(sql) } catch (_) { /* coluna já existe */ }
+  const results: string[] = []
+  for (const sql of MIGRATION_COLS) {
+    try {
+      await prisma.$executeRawUnsafe(sql)
+      results.push('OK: ' + sql.substring(40, 80))
+    } catch (e: any) {
+      results.push('SKIP: ' + e.message.substring(0, 60))
+    }
   }
-  console.log('✅ Schema verificado')
+  console.log('✅ Schema verificado:', results.join(' | '))
+  return results
 }
+
+// Endpoint de migração manual (protegido por chave)
+app.get('/admin/migrate', async (req: any, res: any) => {
+  if (req.query.key !== 'af-migrate-2024') {
+    return res.status(403).json({ error: 'Forbidden' })
+  }
+  try {
+    const results = await runMigrations()
+    res.json({ ok: true, results })
+  } catch (e: any) {
+    res.status(500).json({ error: e.message })
+  }
+})
 
 async function start() {
   try {
