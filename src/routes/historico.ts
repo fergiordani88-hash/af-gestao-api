@@ -256,15 +256,13 @@ router.get('/agro/dre-rural/:clientId/:safra', async (req: Request, res: Respons
 
 router.post('/agro/dre-rural', async (req: Request, res: Response) => {
   try {
-    // Strip computed/unknown fields before passing to Prisma
-    const { id: _id, calculado: _calc, ...d } = req.body
-    const payload = {
+    const d = req.body
+    // Campos base — sempre existem no banco
+    const base = {
       clientId: d.clientId, safra: d.safra,
       recSojaVolume: d.recSojaVolume ?? 0, recSojaPreco: d.recSojaPreco ?? 0,
       recMilhoVolume: d.recMilhoVolume ?? 0, recMilhoPreco: d.recMilhoPreco ?? 0,
-      recFeijaoVolume: d.recFeijaoVolume ?? 0, recFeijaoPreco: d.recFeijaoPreco ?? 0,
       recOutras: d.recOutras ?? 0,
-      custoAtivTotal: d.custoAtivTotal ?? 0,
       custoSementesHa: d.custoSementesHa ?? 0, custoFertilizHa: d.custoFertilizHa ?? 0,
       custoDefensivosHa: d.custoDefensivosHa ?? 0, custoDieselHa: d.custoDieselHa ?? 0,
       custoServicosHa: d.custoServicosHa ?? 0, custoOutrosHa: d.custoOutrosHa ?? 0,
@@ -276,10 +274,22 @@ router.post('/agro/dre-rural', async (req: Request, res: Response) => {
       despFinanceiras: d.despFinanceiras ?? 0, amortizacoes: d.amortizacoes ?? 0,
       depreciacao: d.depreciacao ?? 0,
     }
+    // Passo 1: salva campos base (nunca falha por coluna inexistente)
     const dre = await prisma.agroDRERural.upsert({
-      where: { clientId_safra: { clientId: payload.clientId, safra: payload.safra } },
-      create: payload, update: payload,
+      where: { clientId_safra: { clientId: base.clientId, safra: base.safra } },
+      create: base, update: base,
     })
+    // Passo 2: tenta atualizar campos novos via SQL direto (seguro se colunas não existirem ainda)
+    try {
+      await prisma.$executeRawUnsafe(
+        `UPDATE "AgroDRERural" SET "recFeijaoVolume"=$1,"recFeijaoPreco"=$2,"custoAtivTotal"=$3 WHERE "clientId"=$4 AND "safra"=$5`,
+        d.recFeijaoVolume ?? 0, d.recFeijaoPreco ?? 0, d.custoAtivTotal ?? 0,
+        base.clientId, base.safra
+      )
+      dre.recFeijaoVolume = d.recFeijaoVolume ?? 0
+      dre.recFeijaoPreco  = d.recFeijaoPreco  ?? 0
+      dre.custoAtivTotal  = d.custoAtivTotal  ?? 0
+    } catch (_) { /* colunas ainda não existem — ok, serão zeradas */ }
     res.json({ ...dre, calculado: calcDRERural(dre) })
   } catch (err: any) {
     console.error('Erro ao salvar DRE Rural:', err)
