@@ -255,12 +255,36 @@ router.get('/agro/dre-rural/:clientId/:safra', async (req: Request, res: Respons
 })
 
 router.post('/agro/dre-rural', async (req: Request, res: Response) => {
-  const d = req.body
-  const dre = await prisma.agroDRERural.upsert({
-    where: { clientId_safra: { clientId: d.clientId, safra: d.safra } },
-    create: d, update: d,
-  })
-  res.json({ ...dre, calculado: calcDRERural(dre) })
+  try {
+    // Strip computed/unknown fields before passing to Prisma
+    const { id: _id, calculado: _calc, ...d } = req.body
+    const payload = {
+      clientId: d.clientId, safra: d.safra,
+      recSojaVolume: d.recSojaVolume ?? 0, recSojaPreco: d.recSojaPreco ?? 0,
+      recMilhoVolume: d.recMilhoVolume ?? 0, recMilhoPreco: d.recMilhoPreco ?? 0,
+      recFeijaoVolume: d.recFeijaoVolume ?? 0, recFeijaoPreco: d.recFeijaoPreco ?? 0,
+      recOutras: d.recOutras ?? 0,
+      custoAtivTotal: d.custoAtivTotal ?? 0,
+      custoSementesHa: d.custoSementesHa ?? 0, custoFertilizHa: d.custoFertilizHa ?? 0,
+      custoDefensivosHa: d.custoDefensivosHa ?? 0, custoDieselHa: d.custoDieselHa ?? 0,
+      custoServicosHa: d.custoServicosHa ?? 0, custoOutrosHa: d.custoOutrosHa ?? 0,
+      totalAreaCusteada: d.totalAreaCusteada ?? 0,
+      arrendamentoHa: d.arrendamentoHa ?? 0, areaArrendada: d.areaArrendada ?? 0,
+      folha: d.folha ?? 0, proLabore: d.proLabore ?? 0, contabilidade: d.contabilidade ?? 0,
+      energia: d.energia ?? 0, internet: d.internet ?? 0, manutencaoVeic: d.manutencaoVeic ?? 0,
+      seguros: d.seguros ?? 0, outrasAdmin: d.outrasAdmin ?? 0,
+      despFinanceiras: d.despFinanceiras ?? 0, amortizacoes: d.amortizacoes ?? 0,
+      depreciacao: d.depreciacao ?? 0,
+    }
+    const dre = await prisma.agroDRERural.upsert({
+      where: { clientId_safra: { clientId: payload.clientId, safra: payload.safra } },
+      create: payload, update: payload,
+    })
+    res.json({ ...dre, calculado: calcDRERural(dre) })
+  } catch (err: any) {
+    console.error('Erro ao salvar DRE Rural:', err)
+    res.status(500).json({ error: err?.message ?? 'Erro ao salvar DRE' })
+  }
 })
 
 // ─────────────────────────────────────────────
