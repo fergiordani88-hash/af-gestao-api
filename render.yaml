@@ -9,9 +9,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        sync: false
+        value: postgresql://neondb_owner:npg_kW3CR1lePGKZ@ep-gentle-band-ac2up397-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require&pgbouncer=true
       - key: JWT_SECRET
-        sync: false
+        value: af-gestao-secret-mude-em-producao-2024
       - key: JWT_EXPIRES_IN
         value: 7d
       - key: FRONTEND_URL
