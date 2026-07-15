@@ -27,63 +27,101 @@ function avancaData(base: Date, periodicidade: string, i: number): Date {
   return d
 }
 
+// ── Helpers de amortização ──────────────────────────────────────────────────────
+
+// Price (PMT): parcela constante
+function calcPMT(pv: number, taxaPeriodo: number, n: number): number {
+  if (taxaPeriodo === 0) return pv / n
+  return pv * (taxaPeriodo * Math.pow(1 + taxaPeriodo, n)) / (Math.pow(1 + taxaPeriodo, n) - 1)
+}
+
+// Saldo devedor Price após k pagamentos realizados
+function saldoPrice(pv: number, taxaPeriodo: number, n: number, k: number): number {
+  if (taxaPeriodo === 0) return pv * (1 - k / n)
+  const restantes = n - k
+  const pmt = calcPMT(pv, taxaPeriodo, n)
+  return pmt * (1 - Math.pow(1 + taxaPeriodo, -restantes)) / taxaPeriodo
+}
+
 // ── Helper: gera cronograma de parcelas a partir de um contrato ──
 function gerarParcelas(contrato: {
   id: string; modalidade: string; banco: string; numeroContrato: string | null
   dataContratacao: Date; valorTomado: number; totalParcelas: number; parcelaAtual: number
   periodicidade: string; taxa: number; vencimento: Date; valorParcela: number
   indexador?: string | null; spreadIndexador?: number | null
+  sistemaAmortizacao?: string | null
 }) {
   const parcelas = []
   const base = new Date(contrato.vencimento)
   const isPosFix = contrato.indexador && contrato.indexador !== 'Pré-fixado'
   const nPeriodos = periodosPorAno(contrato.periodicidade)
 
-  // Taxa anual efetiva: para pós-fixado = spread + CDI; para pré-fixado = taxa do contrato
+  // Taxa anual efetiva: pós-fixado = spread + CDI; pré-fixado = taxa contratual
   const taxaAnual = isPosFix
     ? (contrato.spreadIndexador ?? 0) + CDI_ATUAL
     : contrato.taxa
 
-  // Taxa por período (juros compostos)
   const taxaPeriodo = Math.pow(1 + taxaAnual, 1 / nPeriodos) - 1
 
-  // Amortização constante (SAC): saldo devedor estimado na parcela atual
-  const amortizacao = contrato.valorTomado / contrato.totalParcelas
-  // Saldo na parcela atual = valor tomado menos amortizações já pagas
-  let saldo = contrato.valorTomado - amortizacao * (contrato.parcelaAtual - 1)
+  // Pós-fixados sempre usam SAC; pré-fixados respeitam sistemaAmortizacao
+  const useSAC = isPosFix || contrato.sistemaAmortizacao === 'SAC'
 
-  const restantes = contrato.totalParcelas - contrato.parcelaAtual + 1
+  const n = contrato.totalParcelas
+  const k = contrato.parcelaAtual - 1 // parcelas já pagas
+  const restantes = n - k
+
+  // Amortização constante (SAC)
+  const amortConst = contrato.valorTomado / n
+
+  // Saldo devedor no início da parcela atual
+  let saldo: number
+  if (useSAC) {
+    saldo = contrato.valorTomado - amortConst * k
+  } else {
+    // Price: saldo descontado pela fórmula financeira
+    saldo = saldoPrice(contrato.valorTomado, taxaPeriodo, n, k)
+  }
+
+  // PMT para Price (constante)
+  const pmt = useSAC ? 0 : calcPMT(contrato.valorTomado, taxaPeriodo, n)
 
   for (let i = 0; i < restantes; i++) {
     const data = avancaData(base, contrato.periodicidade, i)
-
+    const juros = saldo * taxaPeriodo
+    let amortReal: number
     let valorParcela: number
-    if (isPosFix) {
-      // SAC com CDI: amort constante + juros sobre saldo devedor
-      const juros = saldo * taxaPeriodo
-      valorParcela = amortizacao + juros
-      saldo -= amortizacao
+
+    if (useSAC) {
+      amortReal    = amortConst
+      valorParcela = amortConst + juros
+      saldo        -= amortConst
     } else {
-      valorParcela = contrato.valorParcela
+      valorParcela = pmt
+      amortReal    = pmt - juros
+      saldo        -= amortReal
     }
 
+    // Evita saldo negativo por arredondamento na última parcela
+    if (i === restantes - 1 && Math.abs(saldo) < 0.01) saldo = 0
+
     parcelas.push({
-      contratoId:      contrato.id,
-      modalidade:      contrato.modalidade,
-      banco:           contrato.banco,
-      contrato:        contrato.numeroContrato ?? '',
-      dataContratacao: contrato.dataContratacao,
-      valorTomado:     contrato.valorTomado,
-      totalParcelas:   contrato.totalParcelas,
-      parcelaNum:      contrato.parcelaAtual + i,
-      periodicidade:   contrato.periodicidade,
-      taxa:            taxaAnual,
-      vencimento:      data,
-      valorParcela:    Math.round(valorParcela * 100) / 100,
-      indexador:       contrato.indexador ?? 'Pré-fixado',
-      amortizacao:     isPosFix ? Math.round(amortizacao * 100) / 100 : undefined,
-      juros:           isPosFix ? Math.round((valorParcela - amortizacao) * 100) / 100 : undefined,
-      saldoDevedor:    isPosFix ? Math.round(saldo * 100) / 100 : undefined,
+      contratoId:        contrato.id,
+      modalidade:        contrato.modalidade,
+      banco:             contrato.banco,
+      contrato:          contrato.numeroContrato ?? '',
+      dataContratacao:   contrato.dataContratacao,
+      valorTomado:       contrato.valorTomado,
+      totalParcelas:     n,
+      parcelaNum:        k + 1 + i,
+      periodicidade:     contrato.periodicidade,
+      taxa:              taxaAnual,
+      vencimento:        data,
+      valorParcela:      Math.round(valorParcela * 100) / 100,
+      indexador:         contrato.indexador ?? 'Pré-fixado',
+      sistemaAmortizacao: contrato.sistemaAmortizacao ?? 'Price',
+      amortizacao:       Math.round(amortReal * 100) / 100,
+      juros:             Math.round(juros * 100) / 100,
+      saldoDevedor:      Math.round(Math.max(saldo, 0) * 100) / 100,
     })
   }
   return parcelas

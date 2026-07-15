@@ -13,6 +13,7 @@ const MIGRATION_COLS = [
   `UPDATE "AgroContrato" SET "indexador" = 'CDI'  WHERE "indexador" LIKE '%CDI%'  AND "indexador" != 'CDI'`,
   `UPDATE "AgroContrato" SET "indexador" = 'SELIC' WHERE "indexador" LIKE '%SELIC%' AND "indexador" != 'SELIC'`,
   `UPDATE "AgroContrato" SET "indexador" = 'IPCA' WHERE "indexador" LIKE '%IPCA%' AND "indexador" != 'IPCA'`,
+  `ALTER TABLE "AgroContrato" ADD COLUMN IF NOT EXISTS "sistemaAmortizacao" TEXT DEFAULT 'Price'`,
 ]
 
 async function runMigrations() {
