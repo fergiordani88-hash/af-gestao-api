@@ -310,6 +310,8 @@ model AgroContrato {
   taxa          Float    // % ao período
   vencimento    DateTime // data do próximo vencimento
   valorParcela  Float
+  indexador     String?  @default("Pré-fixado") // Pré-fixado | CDI | SELIC | IPCA | TR
+  spreadIndexador Float? @default(0)            // spread sobre o indexador (ex: CDI + 2%)
   obs           String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
