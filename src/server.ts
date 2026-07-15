@@ -23,7 +23,7 @@ async function runMigrations() {
       await prisma.$executeRawUnsafe(sql)
       results.push('OK: ' + sql.substring(40, 80))
     } catch (e: any) {
-      results.push('SKIP: ' + e.message.substring(0, 60))
+      results.push('SKIP: ' + String(e?.message ?? e).substring(0, 60))
     }
   }
   console.log('✅ Schema verificado:', results.join(' | '))
