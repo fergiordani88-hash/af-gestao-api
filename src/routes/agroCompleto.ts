@@ -85,10 +85,24 @@ router.get('/contratos/:clientId', async (req: Request, res: Response) => {
   res.json(contratos)
 })
 
+// Tenta parsear uma data no formato YYYY-MM-DD ou YYYY-DD-MM (caso Claude inverta dia/mês)
+function parseFlexDate(val: string | undefined): Date | null {
+  if (!val) return null
+  const d = new Date(val)
+  if (!isNaN(d.getTime())) return d
+  // Tenta inverter dia e mês (YYYY-DD-MM → YYYY-MM-DD)
+  const parts = val.split('-')
+  if (parts.length === 3) {
+    const swapped = new Date(`${parts[0]}-${parts[2]}-${parts[1]}`)
+    if (!isNaN(swapped.getTime())) return swapped
+  }
+  return null
+}
+
 router.post('/contratos', async (req: Request, res: Response) => {
   const data = { ...req.body }
-  if (data.dataContratacao) data.dataContratacao = new Date(data.dataContratacao)
-  if (data.vencimento) data.vencimento = new Date(data.vencimento)
+  data.dataContratacao = data.dataContratacao ? parseFlexDate(data.dataContratacao) ?? new Date() : new Date()
+  data.vencimento = data.vencimento ? parseFlexDate(data.vencimento) ?? new Date() : new Date()
   if (data.parcelaAtual === undefined || data.parcelaAtual === null) data.parcelaAtual = 1
   const item = await prisma.agroContrato.create({ data })
   res.status(201).json(item)
