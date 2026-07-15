@@ -9,7 +9,16 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
 const router = Router()
 router.use(requireAuth)
 
-const CDI_ATUAL = 0.1475 // 14,75% a.a. — meta SELIC/CDI vigente
+// Taxas de referência vigentes (decimal a.a.) — atualizar conforme divulgação oficial
+const TAXAS_REF: Record<string, number> = {
+  CDI:   0.1475, // Meta SELIC/CDI — COPOM jul/2025
+  SELIC: 0.1475,
+  IPCA:  0.0548, // IPCA acumulado 12 meses jun/2025 — IBGE
+  TR:    0.0088, // TR estimada — BACEN jul/2025
+}
+const taxaRef = (idx?: string | null) => TAXAS_REF[idx ?? ''] ?? 0
+
+const CDI_ATUAL = 0.1475 // mantido para compatibilidade
 
 function periodosPorAno(periodicidade: string): number {
   if (periodicidade === 'Mensal')     return 12
@@ -56,9 +65,9 @@ function gerarParcelas(contrato: {
   const isPosFix = contrato.indexador && contrato.indexador !== 'Pré-fixado'
   const nPeriodos = periodosPorAno(contrato.periodicidade)
 
-  // Taxa anual efetiva: pós-fixado = spread + CDI; pré-fixado = taxa contratual
+  // Taxa anual efetiva: pós-fixado = spread + índice de referência; pré-fixado = taxa contratual
   const taxaAnual = isPosFix
-    ? (contrato.spreadIndexador ?? 0) + CDI_ATUAL
+    ? (contrato.spreadIndexador ?? 0) + taxaRef(contrato.indexador)
     : contrato.taxa
 
   const taxaPeriodo = Math.pow(1 + taxaAnual, 1 / nPeriodos) - 1
