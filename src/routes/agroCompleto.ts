@@ -172,12 +172,14 @@ router.get('/cronograma/:clientId', async (req: Request, res: Response) => {
   todasParcelas.sort((a, b) => a.vencimento.getTime() - b.vencimento.getTime())
 
   // Resumo por ano
-  const porAno: Record<number, { parcelas: number; total: number }> = {}
+  const porAno: Record<number, { parcelas: number; total: number; juros: number; amortizacao: number }> = {}
   todasParcelas.forEach(p => {
     const ano = p.vencimento.getFullYear()
-    if (!porAno[ano]) porAno[ano] = { parcelas: 0, total: 0 }
+    if (!porAno[ano]) porAno[ano] = { parcelas: 0, total: 0, juros: 0, amortizacao: 0 }
     porAno[ano].parcelas++
     porAno[ano].total += p.valorParcela
+    porAno[ano].juros += p.juros ?? 0
+    porAno[ano].amortizacao += p.amortizacao ?? 0
   })
 
   // Total endividamento
