@@ -54,7 +54,7 @@ export async function parsePdfContract(buffer: Buffer): Promise<ContractFields> 
   try {
     message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
+      max_tokens: 8192,
       messages: [
         {
           role: 'user',
@@ -76,8 +76,8 @@ export async function parsePdfContract(buffer: Buffer): Promise<ContractFields> 
   const raw = message.content[0].type === 'text' ? message.content[0].text.trim() : ''
   console.log('[PDF] Claude raw response:', raw.slice(0, 500))
 
-  // Remove markdown code fences se presentes
-  const jsonStr = raw.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim()
+  // Remove markdown code fences se presentes (```json ... ``` ou ``` ... ```)
+  const jsonStr = raw.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim()
 
   try {
     return JSON.parse(jsonStr) as ContractFields
