@@ -10,6 +10,9 @@ const MIGRATION_COLS = [
   `ALTER TABLE "AgroDRERural" ADD COLUMN IF NOT EXISTS "custoAtivTotal"  DOUBLE PRECISION NOT NULL DEFAULT 0`,
   `ALTER TABLE "AgroContrato" ADD COLUMN IF NOT EXISTS "indexador" TEXT DEFAULT 'Pré-fixado'`,
   `ALTER TABLE "AgroContrato" ADD COLUMN IF NOT EXISTS "spreadIndexador" DOUBLE PRECISION DEFAULT 0`,
+  `UPDATE "AgroContrato" SET "indexador" = 'CDI'  WHERE "indexador" LIKE '%CDI%'  AND "indexador" != 'CDI'`,
+  `UPDATE "AgroContrato" SET "indexador" = 'SELIC' WHERE "indexador" LIKE '%SELIC%' AND "indexador" != 'SELIC'`,
+  `UPDATE "AgroContrato" SET "indexador" = 'IPCA' WHERE "indexador" LIKE '%IPCA%' AND "indexador" != 'IPCA'`,
 ]
 
 async function runMigrations() {
