@@ -1,149 +1,80 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse')
+import Anthropic from '@anthropic-ai/sdk'
 
 export interface ContractFields {
   banco?: string
   numeroContrato?: string
   modalidade?: string
-  dataContratacao?: string
-  vencimento?: string
+  dataContratacao?: string   // YYYY-MM-DD
+  vencimento?: string        // YYYY-MM-DD
   valorTomado?: number
   valorParcela?: number
   totalParcelas?: number
-  taxa?: number
+  taxa?: number              // decimal anual, ex: 0.095
   periodicidade?: string
   obs?: string
-  rawText?: string
+  contratos?: ContractFields[] // múltiplos contratos em um PDF
 }
 
-function clean(s: string) { return s.replace(/\s+/g, ' ').trim() }
+const PROMPT = `Você é um especialista em análise de contratos bancários brasileiros.
+Analise o PDF enviado e extraia TODOS os contratos/operações de crédito encontrados.
 
-function parseBRL(s: string): number | undefined {
-  const m = s.match(/[\d.,]+/)
-  if (!m) return undefined
-  const n = m[0].replace(/\./g, '').replace(',', '.')
-  const v = parseFloat(n)
-  return isNaN(v) ? undefined : v
-}
+Para CADA contrato/operação, retorne um objeto JSON com os campos abaixo.
+Se um campo não estiver presente, omita-o.
 
-function parseDate(s: string): string | undefined {
-  // dd/mm/yyyy or dd.mm.yyyy
-  const m = s.match(/(\d{2})[\/\.\-](\d{2})[\/\.\-](\d{4})/)
-  if (m) return `${m[3]}-${m[2]}-${m[1]}`
-  // yyyy-mm-dd
-  const m2 = s.match(/(\d{4})[\/\.\-](\d{2})[\/\.\-](\d{2})/)
-  if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`
-  return undefined
-}
+Campos:
+- banco: nome da instituição financeira (ex: "SICREDI", "Banco do Brasil", "Bradesco")
+- modalidade: tipo da operação (ex: "Custeio Agrícola", "Pronamp", "Investimento", "Capital de Giro", "Moderfrota", "BNDES Finame", "CPR")
+- numeroContrato: número/código do contrato
+- dataContratacao: data de contratação no formato YYYY-MM-DD
+- vencimento: data de vencimento da última parcela no formato YYYY-MM-DD
+- valorTomado: valor principal do contrato em reais (número puro, sem R$ ou pontos)
+- valorParcela: valor de cada parcela em reais (número puro)
+- totalParcelas: número total de parcelas (inteiro)
+- taxa: taxa de juros ANUAL como decimal (9,5% a.a. → 0.095; se mensal, multiplique por 12 aproximadamente)
+- periodicidade: "Mensal", "Semestral", "Anual", "Trimestral" ou "Único"
+- obs: observações relevantes (ex: indexador CDI, garantias, etc.)
 
-function detectBanco(text: string): string | undefined {
-  const bancos: Record<string, string[]> = {
-    'SICOOB': ['sicoob', 'cooperativa de crédito', 'credcooper'],
-    'SICREDI': ['sicredi'],
-    'Banco do Brasil': ['banco do brasil', 'b.b.', 'agência bb'],
-    'Bradesco': ['bradesco'],
-    'Itaú': ['itaú', 'itau'],
-    'Caixa Econômica Federal': ['caixa econômica', 'cef'],
-    'Santander': ['santander'],
-    'BNB': ['banco do nordeste', 'bnb'],
-    'BNDES': ['bndes'],
-    'BRB': ['brb'],
-    'Banrisul': ['banrisul'],
-    'Rabobank': ['rabobank'],
-    'Viacredi': ['viacredi'],
-    'Cresol': ['cresol'],
-    'Unicred': ['unicred'],
-  }
-  const lower = text.toLowerCase()
-  for (const [nome, keywords] of Object.entries(bancos)) {
-    if (keywords.some(k => lower.includes(k))) return nome
-  }
-  return undefined
-}
+Responda APENAS com JSON válido, sem texto antes ou depois.
 
-function detectModalidade(text: string): string | undefined {
-  const lower = text.toLowerCase()
-  if (lower.includes('custeio')) return 'Custeio'
-  if (lower.includes('pronamp')) return 'Pronamp'
-  if (lower.includes('pronaf')) return 'Pronaf'
-  if (lower.includes('moderfrota')) return 'Moderfrota'
-  if (lower.includes('finame')) return 'BNDES Finame'
-  if (lower.includes('bndes')) return 'BNDES Finame'
-  if (lower.includes('cpr')) return 'CPR'
-  if (lower.includes('investimento')) return 'Investimento'
-  if (lower.includes('capital de giro') || lower.includes('giro')) return 'Capital de giro'
-  if (lower.includes('repactu')) return 'Repactuação'
-  return undefined
-}
+Se houver UM contrato:
+{"banco":"...","modalidade":"...",...}
 
-function detectPeriodicidade(text: string): string | undefined {
-  const lower = text.toLowerCase()
-  if (lower.includes('mensal') || lower.includes('mês')) return 'Mensal'
-  if (lower.includes('semestral')) return 'Semestral'
-  if (lower.includes('trimestral')) return 'Trimestral'
-  if (lower.includes('anual') || lower.includes('ano')) return 'Anual'
-  if (lower.includes('única') || lower.includes('unica') || lower.includes('único')) return 'Único'
-  return undefined
-}
+Se houver MÚLTIPLOS contratos:
+{"contratos":[{"banco":"..."},{"banco":"..."}]}`
 
 export async function parsePdfContract(buffer: Buffer): Promise<ContractFields> {
-  const data = await pdfParse(buffer)
-  const text = clean(data.text)
-  const result: ContractFields = { rawText: text.substring(0, 2000) }
-
-  // Banco
-  result.banco = detectBanco(text)
-
-  // Modalidade
-  result.modalidade = detectModalidade(text)
-
-  // Periodicidade
-  result.periodicidade = detectPeriodicidade(text)
-
-  // Número do contrato
-  const numContrato = text.match(/(?:n[oº°\.]\s*(?:do\s*)?contrato|contrato\s*n[oº°\.]|cédula\s*n[oº°\.])\s*[:\-]?\s*([\d\.\-\/]+)/i)
-  if (numContrato) result.numeroContrato = numContrato[1].trim()
-
-  // Data de contratação (busca a primeira data associada a "contratação", "emissão", "celebrado")
-  const datePatterns = [
-    /(?:data\s*de\s*contrata[çc][aã]o|contratado\s*em|emitido\s*em|celebrado\s*em|data\s*de\s*emiss[aã]o)\s*[:\-]?\s*(\d{2}[\/\.\-]\d{2}[\/\.\-]\d{4})/i,
-    /(\d{2}[\/\.\-]\d{2}[\/\.\-]\d{4})/,
-  ]
-  for (const p of datePatterns) {
-    const m = text.match(p)
-    if (m) { result.dataContratacao = parseDate(m[1]); break }
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error('ANTHROPIC_API_KEY não configurada no servidor.')
   }
 
-  // Vencimento
-  const vencMatch = text.match(/(?:vencimento|vence\s*em|data\s*de\s*vencimento|[uú]ltima\s*parcela)\s*[:\-]?\s*(\d{2}[\/\.\-]\d{2}[\/\.\-]\d{4})/i)
-  if (vencMatch) result.vencimento = parseDate(vencMatch[1])
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  const base64 = buffer.toString('base64')
 
-  // Valor tomado
-  const valorPatterns = [
-    /(?:valor\s*(?:total\s*)?(?:do\s*)?(?:contrato|financiado|liberado|empréstimo|principal|cr[eé]dito))\s*[:\-]?\s*R?\$?\s*([\d\.,]+)/i,
-    /(?:quantia\s*de|no\s*valor\s*de)\s*R?\$?\s*([\d\.,]+)/i,
-    /R\$\s*([\d\.,]+)/,
-  ]
-  for (const p of valorPatterns) {
-    const m = text.match(p)
-    if (m) { result.valorTomado = parseBRL(m[1]); break }
+  const message = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 2048,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'document',
+            source: { type: 'base64', media_type: 'application/pdf', data: base64 },
+          },
+          { type: 'text', text: PROMPT },
+        ],
+      },
+    ],
+  })
+
+  const raw = message.content[0].type === 'text' ? message.content[0].text.trim() : ''
+
+  // Remove markdown code fences se presentes
+  const jsonStr = raw.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim()
+
+  try {
+    return JSON.parse(jsonStr) as ContractFields
+  } catch {
+    throw new Error(`Não foi possível interpretar o PDF. Tente um arquivo diferente ou lance manualmente.`)
   }
-
-  // Valor da parcela
-  const parcelaValorMatch = text.match(/(?:valor\s*da\s*parcela|cada\s*parcela|parcela\s*de)\s*[:\-]?\s*R?\$?\s*([\d\.,]+)/i)
-  if (parcelaValorMatch) result.valorParcela = parseBRL(parcelaValorMatch[1])
-
-  // Total de parcelas
-  const parcelasMatch = text.match(/(\d+)\s*(?:parcelas?|presta[çc][oõ]es?|pagamentos?)\s*(?:mensais?|semestrais?|anuais?)?/i)
-  if (parcelasMatch) result.totalParcelas = parseInt(parcelasMatch[1])
-
-  // Taxa de juros
-  const taxaMatch = text.match(/taxa\s*(?:de\s*juros?)?\s*[:\-]?\s*([\d,\.]+)\s*%\s*(?:a\.?[mM]\.?|ao\s*m[eê]s)?/i)
-  if (taxaMatch) {
-    const t = parseFloat(taxaMatch[1].replace(',', '.'))
-    // Convert to decimal if percentage > 1
-    result.taxa = t > 1 ? t / 100 : t
-  }
-
-  return result
 }

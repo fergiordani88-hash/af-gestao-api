@@ -16,3 +16,5 @@ services:
         value: 7d
       - key: FRONTEND_URL
         value: https://af-gestao-xi.vercel.app
+      - key: ANTHROPIC_API_KEY
+        value: ""
