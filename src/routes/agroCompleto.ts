@@ -89,6 +89,7 @@ router.post('/contratos', async (req: Request, res: Response) => {
   const data = { ...req.body }
   if (data.dataContratacao) data.dataContratacao = new Date(data.dataContratacao)
   if (data.vencimento) data.vencimento = new Date(data.vencimento)
+  if (data.parcelaAtual === undefined || data.parcelaAtual === null) data.parcelaAtual = 1
   const item = await prisma.agroContrato.create({ data })
   res.status(201).json(item)
 })
