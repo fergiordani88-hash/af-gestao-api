@@ -178,11 +178,31 @@ function parseFlexDate(val: string | undefined): Date | null {
   return null
 }
 
+// Para SAC pré-fixado: calcula a parcela atual (amort + juros sobre saldo) e retorna como valorParcela
+function calcValorParcelaSAC(data: any): number {
+  const pv   = Number(data.valorTomado   || 0)
+  const n    = Number(data.totalParcelas || 0)
+  const k    = Number(data.parcelaAtual  || 1) - 1  // parcelas já pagas
+  const taxa = Number(data.taxa          || 0)       // anual decimal
+  if (!pv || !n || !taxa) return Number(data.valorParcela || 0)
+
+  const nPer = periodosPorAno(data.periodicidade || 'Mensal')
+  const i    = Math.pow(1 + taxa, 1 / nPer) - 1
+  const amort = pv / n
+  const saldo = pv - amort * k
+  return Math.round((amort + saldo * i) * 100) / 100
+}
+
 router.post('/contratos', async (req: Request, res: Response) => {
   const data = { ...req.body }
   data.dataContratacao = data.dataContratacao ? parseFlexDate(data.dataContratacao) ?? new Date() : new Date()
   data.vencimento = data.vencimento ? parseFlexDate(data.vencimento) ?? new Date() : new Date()
   if (data.parcelaAtual === undefined || data.parcelaAtual === null) data.parcelaAtual = 1
+  // SAC pré-fixado: auto-calcula a parcela atual pela fórmula
+  const isPosFix = data.indexador && data.indexador !== 'Pré-fixado'
+  if (data.sistemaAmortizacao === 'SAC' && !isPosFix) {
+    data.valorParcela = calcValorParcelaSAC(data)
+  }
   const item = await prisma.agroContrato.create({ data })
   res.status(201).json(item)
 })
@@ -191,6 +211,11 @@ router.put('/contratos/:id', async (req: Request, res: Response) => {
   const data = { ...req.body }
   if (data.dataContratacao) data.dataContratacao = new Date(data.dataContratacao)
   if (data.vencimento) data.vencimento = new Date(data.vencimento)
+  // SAC pré-fixado: re-calcula a parcela atual ao editar
+  const isPosFix = data.indexador && data.indexador !== 'Pré-fixado'
+  if (data.sistemaAmortizacao === 'SAC' && !isPosFix) {
+    data.valorParcela = calcValorParcelaSAC(data)
+  }
   const item = await prisma.agroContrato.update({ where: { id: req.params.id }, data })
   res.json(item)
 })
