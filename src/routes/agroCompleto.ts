@@ -372,21 +372,32 @@ router.delete('/patrimonio/:id', async (req: Request, res: Response) => {
 // ─────────────────────────────────────────────
 // FLUXO DE CAIXA DIÁRIO — combina tudo automaticamente
 // ─────────────────────────────────────────────
+// Gera datas mensais de vencimento para um custo fixo — 24 meses a partir de hoje
+function gerarVencimentosCustoFixo(dia: number): Date[] {
+  const hoje = new Date()
+  const datas: Date[] = []
+  for (let i = 0; i < 24; i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, Math.min(dia, 28))
+    datas.push(d)
+  }
+  return datas
+}
+
 router.get('/fluxo-diario/:clientId', async (req: Request, res: Response) => {
   const cid = req.params.clientId
   const saldoInicial = Number(req.query.saldoInicial ?? 0)
 
-  const [contratos, despesas, receitas] = await Promise.all([
+  const [contratos, despesas, receitas, custosFixos] = await Promise.all([
     prisma.agroContrato.findMany({ where: { clientId: cid } }),
     prisma.agroDespesa.findMany({ where: { clientId: cid } }),
     prisma.agroReceita.findMany({ where: { clientId: cid } }),
+    prisma.agroCustoFixo.findMany({ where: { clientId: cid } }),
   ])
 
   const movimentos: Array<{
     data: Date; mov: string; tipo: string; origem: string; descricao: string; valor: number; id?: string
   }> = []
 
-  // Carrega parcelas custom
   // Parcelas dos contratos
   contratos.flatMap(c => gerarParcelas(c)).forEach(p => {
     movimentos.push({
@@ -399,7 +410,7 @@ router.get('/fluxo-diario/:clientId', async (req: Request, res: Response) => {
     })
   })
 
-  // Despesas
+  // Despesas não bancárias
   despesas.forEach(d => {
     movimentos.push({
       data: d.data,
@@ -409,6 +420,21 @@ router.get('/fluxo-diario/:clientId', async (req: Request, res: Response) => {
       descricao: d.descricao,
       valor: d.valor,
       id: d.id,
+    })
+  })
+
+  // Custos fixos — gera 24 meses de vencimentos
+  custosFixos.forEach(cf => {
+    const dia = (cf as any).diaVencimento ?? 5
+    gerarVencimentosCustoFixo(dia).forEach(data => {
+      movimentos.push({
+        data,
+        mov: 'SAÍDA',
+        tipo: 'Custo Fixo',
+        origem: cf.categoria,
+        descricao: cf.item,
+        valor: cf.valorMensal,
+      })
     })
   })
 
@@ -424,10 +450,8 @@ router.get('/fluxo-diario/:clientId', async (req: Request, res: Response) => {
     })
   })
 
-  // Ordena por data
   movimentos.sort((a, b) => a.data.getTime() - b.data.getTime())
 
-  // Calcula saldo corrente
   let saldo = saldoInicial
   const fluxo = movimentos.map(m => {
     if (m.mov === 'ENTRADA') saldo += m.valor
@@ -445,10 +469,11 @@ router.get('/fluxo-mensal/:clientId', async (req: Request, res: Response) => {
   const cid = req.params.clientId
   const saldoInicial = Number(req.query.saldoInicial ?? 0)
 
-  const [contratos, despesas, receitas] = await Promise.all([
+  const [contratos, despesas, receitas, custosFixos] = await Promise.all([
     prisma.agroContrato.findMany({ where: { clientId: cid } }),
     prisma.agroDespesa.findMany({ where: { clientId: cid } }),
     prisma.agroReceita.findMany({ where: { clientId: cid } }),
+    prisma.agroCustoFixo.findMany({ where: { clientId: cid } }),
   ])
 
   const porMes: Record<string, { entradas: number; saidas: number }> = {}
@@ -463,6 +488,10 @@ router.get('/fluxo-mensal/:clientId', async (req: Request, res: Response) => {
   contratos.flatMap(c => gerarParcelas(c)).forEach(p => addMes(p.vencimento, 'saida', p.valorParcela))
   despesas.forEach(d => addMes(d.data, 'saida', d.valor))
   receitas.forEach(r => addMes(r.data, 'entrada', r.valor))
+  custosFixos.forEach(cf => {
+    const dia = (cf as any).diaVencimento ?? 5
+    gerarVencimentosCustoFixo(dia).forEach(data => addMes(data, 'saida', cf.valorMensal))
+  })
 
   const meses = Object.keys(porMes).sort()
   let saldo = saldoInicial

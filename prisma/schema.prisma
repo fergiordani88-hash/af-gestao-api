@@ -346,14 +346,15 @@ model AgroReceita {
 
 // Custos fixos por categoria
 model AgroCustoFixo {
-  id        String   @id @default(cuid())
-  clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  categoria String   // Custos recorrentes | Folha | Contábil | Tecnologia | Marketing | Operacional | Bancário | Consórcios
-  item      String
-  valorMensal Float  @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  categoria   String
+  item        String
+  valorMensal Float    @default(0)
+  diaVencimento Int    @default(5)  // dia do mês em que o custo vence (1-31)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // Patrimônio
