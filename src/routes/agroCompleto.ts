@@ -284,6 +284,12 @@ router.post('/despesas', async (req: Request, res: Response) => {
   res.status(201).json(item)
 })
 
+router.put('/despesas/:id', async (req: Request, res: Response) => {
+  const data = { ...req.body, data: new Date(req.body.data) }
+  const item = await prisma.agroDespesa.update({ where: { id: req.params.id }, data })
+  res.json(item)
+})
+
 router.delete('/despesas/:id', async (req: Request, res: Response) => {
   await prisma.agroDespesa.delete({ where: { id: req.params.id } })
   res.status(204).send()
@@ -377,7 +383,7 @@ router.get('/fluxo-diario/:clientId', async (req: Request, res: Response) => {
   ])
 
   const movimentos: Array<{
-    data: Date; mov: string; tipo: string; origem: string; descricao: string; valor: number
+    data: Date; mov: string; tipo: string; origem: string; descricao: string; valor: number; id?: string
   }> = []
 
   // Parcelas dos contratos
@@ -401,6 +407,7 @@ router.get('/fluxo-diario/:clientId', async (req: Request, res: Response) => {
       origem: d.origem,
       descricao: d.descricao,
       valor: d.valor,
+      id: d.id,
     })
   })
 
