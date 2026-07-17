@@ -453,7 +453,7 @@ router.get('/fluxo-diario/:clientId', async (req: Request, res: Response) => {
         valor: custoCOE,
       })
     }
-    const custoArrend = p.areaArrendada * p.custoArrendHa
+    const custoArrend = p.areaArrendada * p.custoArrendHa * (p.cotacao || 1)
     if (custoArrend > 0) {
       movimentos.push({
         data: p.dataPagamento,
@@ -525,7 +525,7 @@ router.get('/fluxo-mensal/:clientId', async (req: Request, res: Response) => {
     if (!p.dataPagamento) return
     const custoCOE = p.area * p.custoPorHa * (p.cotacao || 1)
     if (custoCOE > 0) addMes(p.dataPagamento, 'saida', custoCOE)
-    const custoArrend = p.areaArrendada * p.custoArrendHa
+    const custoArrend = p.areaArrendada * p.custoArrendHa * (p.cotacao || 1)
     if (custoArrend > 0) addMes(p.dataPagamento, 'saida', custoArrend)
   })
 
