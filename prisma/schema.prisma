@@ -299,23 +299,36 @@ model AgroContrato {
   id            String   @id @default(cuid())
   clientId      String
   client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  modalidade    String   // Capital de giro, Repactuação, Investimento CDI, BNDES Finame, Custeio, CPR etc
+  modalidade    String
   banco         String
   numeroContrato String?
   dataContratacao DateTime
   valorTomado   Float
   totalParcelas Int
   parcelaAtual  Int
-  periodicidade String   // Mensal | Anual | Semestral | Trimestral | Único
-  taxa          Float    // % ao período
-  vencimento    DateTime // data do próximo vencimento
+  periodicidade String   // Mensal | Anual | Semestral | Trimestral | Único | Livre
+  taxa          Float
+  vencimento    DateTime
   valorParcela  Float
-  indexador          String?  @default("Pré-fixado") // Pré-fixado | CDI | SELIC | IPCA | TR
-  spreadIndexador    Float?   @default(0)            // spread sobre o indexador (ex: CDI + 2%)
-  sistemaAmortizacao String?  @default("Price")      // Price | SAC
+  indexador          String?  @default("Pré-fixado")
+  spreadIndexador    Float?   @default(0)
+  sistemaAmortizacao String?  @default("Price")
   obs           String?
+  usarParcelasCustom Boolean @default(false)
+  parcelasCustom AgroParcelaCustom[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+model AgroParcelaCustom {
+  id         String       @id @default(cuid())
+  contratoId String
+  contrato   AgroContrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  numero     Int
+  data       DateTime
+  valor      Float
+  createdAt  DateTime     @default(now())
+  @@unique([contratoId, numero])
 }
 
 // Despesas não bancárias
