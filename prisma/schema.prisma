@@ -314,21 +314,8 @@ model AgroContrato {
   spreadIndexador    Float?   @default(0)
   sistemaAmortizacao String?  @default("Price")
   obs           String?
-  usarParcelasCustom Boolean @default(false)
-  parcelasCustom AgroParcelaCustom[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-}
-
-model AgroParcelaCustom {
-  id         String       @id @default(cuid())
-  contratoId String
-  contrato   AgroContrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
-  numero     Int
-  data       DateTime
-  valor      Float
-  createdAt  DateTime     @default(now())
-  @@unique([contratoId, numero])
 }
 
 // Despesas não bancárias

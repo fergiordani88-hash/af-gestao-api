@@ -234,102 +234,13 @@ router.delete('/contratos/:id', async (req: Request, res: Response) => {
   res.status(204).send()
 })
 
-// ─────────────────────────────────────────────
-// PARCELAS CUSTOM
-// ─────────────────────────────────────────────
-router.get('/parcelas-custom/:contratoId', async (req: Request, res: Response) => {
-  const items = await prisma.agroParcelaCustom.findMany({
-    where: { contratoId: req.params.contratoId },
-    orderBy: { numero: 'asc' },
-  })
-  res.json(items)
-})
-
-// Salva cronograma completo (substitui tudo)
-router.post('/parcelas-custom/bulk/:contratoId', async (req: Request, res: Response) => {
-  const { contratoId } = req.params
-  const parcelas: Array<{ numero: number; data: string; valor: number }> = req.body
-  await prisma.agroParcelaCustom.deleteMany({ where: { contratoId } })
-  const created = await prisma.agroParcelaCustom.createMany({
-    data: parcelas.map(p => ({
-      contratoId,
-      numero: p.numero,
-      data: new Date(p.data),
-      valor: p.valor,
-    })),
-  })
-  await prisma.agroContrato.update({
-    where: { id: contratoId },
-    data: { usarParcelasCustom: true },
-  })
-  res.json({ count: created.count })
-})
-
-router.put('/parcelas-custom/:id', async (req: Request, res: Response) => {
-  const item = await prisma.agroParcelaCustom.update({
-    where: { id: req.params.id },
-    data: { data: new Date(req.body.data), valor: req.body.valor },
-  })
-  res.json(item)
-})
-
-router.delete('/parcelas-custom/all/:contratoId', async (req: Request, res: Response) => {
-  await prisma.agroParcelaCustom.deleteMany({ where: { contratoId: req.params.contratoId } })
-  await prisma.agroContrato.update({
-    where: { id: req.params.contratoId },
-    data: { usarParcelasCustom: false },
-  })
-  res.status(204).send()
-})
-
-// Helper: resolve parcelas de um contrato (auto ou custom)
-async function resolverParcelas(c: any, customMap: Map<string, any[]>) {
-  if (c.usarParcelasCustom) {
-    const custom = customMap.get(c.id) ?? []
-    return custom.map((p: any, i: number) => ({
-      contratoId: c.id,
-      modalidade: c.modalidade,
-      banco: c.banco,
-      contrato: c.numeroContrato ?? '',
-      dataContratacao: c.dataContratacao,
-      valorTomado: c.valorTomado,
-      totalParcelas: custom.length,
-      parcelaNum: p.numero,
-      periodicidade: 'Livre',
-      taxa: 0,
-      vencimento: p.data,
-      valorParcela: p.valor,
-      indexador: c.indexador ?? 'Pré-fixado',
-      sistemaAmortizacao: 'Personalizado',
-      amortizacao: p.valor,
-      juros: 0,
-      saldoDevedor: custom.slice(i + 1).reduce((s: number, x: any) => s + x.valor, 0),
-    }))
-  }
-  return gerarParcelas(c)
-}
-
 // Cronograma ordenado — gera automaticamente todas as parcelas futuras, ordenadas por vencimento
 router.get('/cronograma/:clientId', async (req: Request, res: Response) => {
   const contratos = await prisma.agroContrato.findMany({
     where: { clientId: req.params.clientId },
   })
 
-  // Carrega parcelas custom dos contratos que usam
-  const customContratos = contratos.filter(c => c.usarParcelasCustom)
-  const customRows = customContratos.length > 0
-    ? await prisma.agroParcelaCustom.findMany({
-        where: { contratoId: { in: customContratos.map(c => c.id) } },
-        orderBy: { numero: 'asc' },
-      })
-    : []
-  const customMap = new Map<string, typeof customRows>()
-  customRows.forEach(r => {
-    if (!customMap.has(r.contratoId)) customMap.set(r.contratoId, [])
-    customMap.get(r.contratoId)!.push(r)
-  })
-
-  const todasParcelas = (await Promise.all(contratos.map(c => resolverParcelas(c, customMap)))).flat()
+  const todasParcelas = contratos.flatMap(c => gerarParcelas(c))
   todasParcelas.sort((a, b) => a.vencimento.getTime() - b.vencimento.getTime())
 
   // Resumo por ano
@@ -476,22 +387,8 @@ router.get('/fluxo-diario/:clientId', async (req: Request, res: Response) => {
   }> = []
 
   // Carrega parcelas custom
-  const customContratosF = contratos.filter(c => c.usarParcelasCustom)
-  const customRowsF = customContratosF.length > 0
-    ? await prisma.agroParcelaCustom.findMany({
-        where: { contratoId: { in: customContratosF.map(c => c.id) } },
-        orderBy: { numero: 'asc' },
-      })
-    : []
-  const customMapF = new Map<string, typeof customRowsF>()
-  customRowsF.forEach(r => {
-    if (!customMapF.has(r.contratoId)) customMapF.set(r.contratoId, [])
-    customMapF.get(r.contratoId)!.push(r)
-  })
-
   // Parcelas dos contratos
-  const todasParcelasF = (await Promise.all(contratos.map(c => resolverParcelas(c, customMapF)))).flat()
-  todasParcelasF.forEach(p => {
+  contratos.flatMap(c => gerarParcelas(c)).forEach(p => {
     movimentos.push({
       data: p.vencimento,
       mov: 'SAÍDA',
@@ -563,20 +460,7 @@ router.get('/fluxo-mensal/:clientId', async (req: Request, res: Response) => {
     else porMes[key].saidas += valor
   }
 
-  const customContratosM = contratos.filter(c => c.usarParcelasCustom)
-  const customRowsM = customContratosM.length > 0
-    ? await prisma.agroParcelaCustom.findMany({
-        where: { contratoId: { in: customContratosM.map(c => c.id) } },
-        orderBy: { numero: 'asc' },
-      })
-    : []
-  const customMapM = new Map<string, typeof customRowsM>()
-  customRowsM.forEach(r => {
-    if (!customMapM.has(r.contratoId)) customMapM.set(r.contratoId, [])
-    customMapM.get(r.contratoId)!.push(r)
-  })
-  const todasParcelasM = (await Promise.all(contratos.map(c => resolverParcelas(c, customMapM)))).flat()
-  todasParcelasM.forEach(p => addMes(p.vencimento, 'saida', p.valorParcela))
+  contratos.flatMap(c => gerarParcelas(c)).forEach(p => addMes(p.vencimento, 'saida', p.valorParcela))
   despesas.forEach(d => addMes(d.data, 'saida', d.valor))
   receitas.forEach(r => addMes(r.data, 'entrada', r.valor))
 
