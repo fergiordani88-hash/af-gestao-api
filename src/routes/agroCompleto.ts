@@ -482,10 +482,11 @@ router.get('/fluxo-diario/:clientId', async (req: Request, res: Response) => {
     })
   })
 
-  movimentos.sort((a, b) => a.data.getTime() - b.data.getTime())
+  const movimentosFiltrados = movimentos.filter(m => m.valor > 0)
+  movimentosFiltrados.sort((a, b) => a.data.getTime() - b.data.getTime())
 
   let saldo = saldoInicial
-  const fluxo = movimentos.map(m => {
+  const fluxo = movimentosFiltrados.map(m => {
     if (m.mov === 'ENTRADA') saldo += m.valor
     else saldo -= m.valor
     return { ...m, saldoFinal: saldo }
@@ -512,6 +513,7 @@ router.get('/fluxo-mensal/:clientId', async (req: Request, res: Response) => {
   const porMes: Record<string, { entradas: number; saidas: number }> = {}
 
   const addMes = (data: Date, tipo: 'entrada' | 'saida', valor: number) => {
+    if (valor <= 0) return
     const key = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`
     if (!porMes[key]) porMes[key] = { entradas: 0, saidas: 0 }
     if (tipo === 'entrada') porMes[key].entradas += valor
