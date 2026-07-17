@@ -387,11 +387,12 @@ router.get('/fluxo-diario/:clientId', async (req: Request, res: Response) => {
   const cid = req.params.clientId
   const saldoInicial = Number(req.query.saldoInicial ?? 0)
 
-  const [contratos, despesas, receitas, custosFixos] = await Promise.all([
+  const [contratos, despesas, receitas, custosFixos, producoes] = await Promise.all([
     prisma.agroContrato.findMany({ where: { clientId: cid } }),
     prisma.agroDespesa.findMany({ where: { clientId: cid } }),
     prisma.agroReceita.findMany({ where: { clientId: cid } }),
     prisma.agroCustoFixo.findMany({ where: { clientId: cid } }),
+    prisma.agroProducao.findMany({ where: { clientId: cid, dataPagamento: { not: null } } }),
   ])
 
   const movimentos: Array<{
@@ -438,6 +439,33 @@ router.get('/fluxo-diario/:clientId', async (req: Request, res: Response) => {
     })
   })
 
+  // Custos de produção (COE + arrendamento) com data definida
+  producoes.forEach(p => {
+    if (!p.dataPagamento) return
+    const custoCOE = p.area * p.custoPorHa * (p.cotacao || 1)
+    if (custoCOE > 0) {
+      movimentos.push({
+        data: p.dataPagamento,
+        mov: 'SAÍDA',
+        tipo: 'Custo da atividade',
+        origem: p.cultura,
+        descricao: `COE ${p.cultura} ${p.safra}`,
+        valor: custoCOE,
+      })
+    }
+    const custoArrend = p.areaArrendada * p.custoArrendHa
+    if (custoArrend > 0) {
+      movimentos.push({
+        data: p.dataPagamento,
+        mov: 'SAÍDA',
+        tipo: 'Custo da atividade',
+        origem: p.cultura,
+        descricao: `Arrendamento ${p.cultura} ${p.safra}`,
+        valor: custoArrend,
+      })
+    }
+  })
+
   // Receitas
   receitas.forEach(r => {
     movimentos.push({
@@ -469,11 +497,12 @@ router.get('/fluxo-mensal/:clientId', async (req: Request, res: Response) => {
   const cid = req.params.clientId
   const saldoInicial = Number(req.query.saldoInicial ?? 0)
 
-  const [contratos, despesas, receitas, custosFixos] = await Promise.all([
+  const [contratos, despesas, receitas, custosFixos, producoes] = await Promise.all([
     prisma.agroContrato.findMany({ where: { clientId: cid } }),
     prisma.agroDespesa.findMany({ where: { clientId: cid } }),
     prisma.agroReceita.findMany({ where: { clientId: cid } }),
     prisma.agroCustoFixo.findMany({ where: { clientId: cid } }),
+    prisma.agroProducao.findMany({ where: { clientId: cid, dataPagamento: { not: null } } }),
   ])
 
   const porMes: Record<string, { entradas: number; saidas: number }> = {}
@@ -491,6 +520,13 @@ router.get('/fluxo-mensal/:clientId', async (req: Request, res: Response) => {
   custosFixos.forEach(cf => {
     const dia = (cf as any).diaVencimento ?? 5
     gerarVencimentosCustoFixo(dia).forEach(data => addMes(data, 'saida', cf.valorMensal))
+  })
+  producoes.forEach(p => {
+    if (!p.dataPagamento) return
+    const custoCOE = p.area * p.custoPorHa * (p.cotacao || 1)
+    if (custoCOE > 0) addMes(p.dataPagamento, 'saida', custoCOE)
+    const custoArrend = p.areaArrendada * p.custoArrendHa
+    if (custoArrend > 0) addMes(p.dataPagamento, 'saida', custoArrend)
   })
 
   const meses = Object.keys(porMes).sort()

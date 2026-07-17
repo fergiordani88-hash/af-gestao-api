@@ -290,6 +290,7 @@ model AgroProducao {
   custoPorHa    Float @default(0)
   areaArrendada Float @default(0)
   custoArrendHa Float @default(0)
+  dataPagamento DateTime? // data prevista de pagamento do custo de produção (para fluxo)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
