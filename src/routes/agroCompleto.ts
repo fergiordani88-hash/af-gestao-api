@@ -153,7 +153,11 @@ router.post('/producao', async (req: Request, res: Response) => {
 })
 
 router.put('/producao/:id', async (req: Request, res: Response) => {
-  const item = await prisma.agroProducao.update({ where: { id: req.params.id }, data: req.body })
+  const body = { ...req.body }
+  if (body.dataPagamento && typeof body.dataPagamento === 'string') {
+    body.dataPagamento = new Date(body.dataPagamento)
+  }
+  const item = await prisma.agroProducao.update({ where: { id: req.params.id }, data: body })
   res.json(item)
 })
 
