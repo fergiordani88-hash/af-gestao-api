@@ -608,29 +608,61 @@ router.post('/cadastro/confirm', async (req: Request, res: Response) => {
   const { clientId, patrimonio = [], producao = [] } = req.body
   if (!clientId) return res.status(400).json({ error: 'clientId obrigatório' })
 
+  const CATS_VALIDAS = ['Máquinas', 'Equipamentos', 'Veículos', 'Imóveis rurais', 'Imóveis urbanos', 'Rebanho', 'Outros']
+
+  const patErrors: string[] = []
   const patResults = await Promise.allSettled(
     patrimonio.map((p: any) =>
-      prisma.agroPatrimonio.create({ data: { ...p, clientId } })
-    )
-  )
-  const prodResults = await Promise.allSettled(
-    producao.map((p: any) =>
-      prisma.agroProducao.create({
+      prisma.agroPatrimonio.create({
         data: {
-          ...p,
           clientId,
-          tipo:  p.tipo  ?? 'historico',
-          ordem: p.ordem ?? 'principal',
+          categoria:     CATS_VALIDAS.includes(p.categoria) ? p.categoria : 'Outros',
+          descricao:     String(p.descricao ?? '').slice(0, 255) || 'Sem descrição',
+          identificacao: p.identificacao ? String(p.identificacao).slice(0, 255) : null,
+          valorAvaliado: Number(p.valorAvaliado) || 0,
+          possuiOnus:    Boolean(p.possuiOnus),
+          tipoOnus:      p.tipoOnus ? String(p.tipoOnus).slice(0, 100) : null,
+          credor:        p.credor   ? String(p.credor).slice(0, 100)   : null,
+          valorOnus:     Number(p.valorOnus) || 0,
+          obs:           p.obs      ? String(p.obs).slice(0, 500)      : null,
         },
       })
     )
   )
+  patResults.forEach((r, i) => {
+    if (r.status === 'rejected') patErrors.push(`Patrimônio #${i + 1} (${patrimonio[i]?.descricao}): ${(r.reason as Error).message}`)
+  })
+
+  const prodErrors: string[] = []
+  const prodResults = await Promise.allSettled(
+    producao.map((p: any) =>
+      prisma.agroProducao.create({
+        data: {
+          clientId,
+          safra:         String(p.safra ?? '').slice(0, 20) || '2024/25',
+          cultura:       String(p.cultura ?? '').slice(0, 50) || 'Soja',
+          tipo:          p.tipo  ?? 'historico',
+          ordem:         p.ordem ?? 'principal',
+          area:          Number(p.area)          || 0,
+          produtividade: Number(p.produtividade) || 0,
+          cotacao:       Number(p.cotacao)       || 0,
+          custoPorHa:    Number(p.custoPorHa)    || 0,
+          areaArrendada: Number(p.areaArrendada) || 0,
+          custoArrendHa: Number(p.custoArrendHa) || 0,
+        },
+      })
+    )
+  )
+  prodResults.forEach((r, i) => {
+    if (r.status === 'rejected') prodErrors.push(`Produção #${i + 1} (${producao[i]?.cultura} ${producao[i]?.safra}): ${(r.reason as Error).message}`)
+  })
 
   return res.json({
     patrimonioImportado: patResults.filter(r => r.status === 'fulfilled').length,
     patrimonioErros:     patResults.filter(r => r.status === 'rejected').length,
     producaoImportada:   prodResults.filter(r => r.status === 'fulfilled').length,
     producaoErros:       prodResults.filter(r => r.status === 'rejected').length,
+    erros:               [...patErrors, ...prodErrors],
   })
 })
 
