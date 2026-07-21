@@ -94,7 +94,7 @@ export async function parseCadastroProdutor(buffer: Buffer): Promise<CadastroPar
 
   const response = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 6000,
+    max_tokens: 16000,
     messages: [{
       role: 'user',
       content: [
