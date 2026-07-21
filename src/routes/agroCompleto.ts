@@ -591,4 +591,40 @@ router.post('/contratos/import-pdf', upload.single('pdf'), async (req: Request, 
   }
 })
 
+// POST /agro/cadastro/preview — lê PDF de cadastro bancário e extrai patrimônio + produção
+router.post('/cadastro/preview', upload.single('pdf'), async (req: Request, res: Response) => {
+  if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' })
+  try {
+    const { parseCadastroProdutor } = await import('../lib/parseCadastroProdutor')
+    const result = await parseCadastroProdutor(req.file.buffer)
+    return res.json(result)
+  } catch (e: any) {
+    return res.status(422).json({ error: 'Erro ao processar PDF: ' + e.message })
+  }
+})
+
+// POST /agro/cadastro/confirm — grava patrimônio e produção extraídos
+router.post('/cadastro/confirm', async (req: Request, res: Response) => {
+  const { clientId, patrimonio = [], producao = [] } = req.body
+  if (!clientId) return res.status(400).json({ error: 'clientId obrigatório' })
+
+  const patResults = await Promise.allSettled(
+    patrimonio.map((p: any) =>
+      prisma.agroPatrimonio.create({ data: { ...p, clientId } })
+    )
+  )
+  const prodResults = await Promise.allSettled(
+    producao.map((p: any) =>
+      prisma.agroProducao.create({ data: { ...p, clientId } })
+    )
+  )
+
+  return res.json({
+    patrimonioImportado: patResults.filter(r => r.status === 'fulfilled').length,
+    patrimonioErros:     patResults.filter(r => r.status === 'rejected').length,
+    producaoImportada:   prodResults.filter(r => r.status === 'fulfilled').length,
+    producaoErros:       prodResults.filter(r => r.status === 'rejected').length,
+  })
+})
+
 export default router
