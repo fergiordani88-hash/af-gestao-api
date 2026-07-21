@@ -615,7 +615,14 @@ router.post('/cadastro/confirm', async (req: Request, res: Response) => {
   )
   const prodResults = await Promise.allSettled(
     producao.map((p: any) =>
-      prisma.agroProducao.create({ data: { ...p, clientId } })
+      prisma.agroProducao.create({
+        data: {
+          ...p,
+          clientId,
+          tipo:  p.tipo  ?? 'historico',
+          ordem: p.ordem ?? 'principal',
+        },
+      })
     )
   )
 
