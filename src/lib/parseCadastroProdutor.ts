@@ -38,7 +38,7 @@ export interface CadastroParseResult {
 
 export async function parseCadastroProdutor(buffer: Buffer): Promise<CadastroParseResult> {
   const parsed = await pdfParse(buffer)
-  const text = parsed.text.slice(0, 40000) // limita tokens
+  const text = parsed.text.slice(0, 20000) // limita tokens para evitar timeout
 
   const prompt = `Você é um extrator de dados de cadastros bancários de produtores rurais brasileiros.
 Analise o texto abaixo e extraia TODOS os dados estruturados em JSON conforme o schema.
@@ -104,8 +104,8 @@ TEXTO DO CADASTRO:
 ${text}`
 
   const response = await client.messages.create({
-    model: 'claude-opus-4-8',
-    max_tokens: 8000,
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 6000,
     messages: [{ role: 'user', content: prompt }],
   })
 
