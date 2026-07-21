@@ -49,10 +49,15 @@ REGRAS:
 - obs: imóveis → incluir área ha e cidade
 - Produção (seções "Renda Efetiva" e "Renda Prevista"):
   * safra: "AAAA/AA" ex: "2024/25"
-  * produtividade em sc/ha (converter: 1 ton = 16,667 sc; kg/ha ÷ 60 = sc/ha)
-  * cotacao em R$/sc (converter: R$/ton ÷ 16,667; R$/kg × 60)
-  * custoPorHa: custo em R$/ha
+  * CONVERSÃO DE PRODUTIVIDADE (campo "Quantidade" da coluna Produção):
+    - Se o valor de Quantidade > 100 (ex: 9.000), está em KG/HA → dividir por 60 para obter sc/ha. Exemplo: 9.000 kg/ha ÷ 60 = 150 sc/ha
+    - Se o valor de Quantidade < 20 (ex: 4,50), está em TON/HA → multiplicar por 16,667 para obter sc/ha. Exemplo: 4,5 t/ha × 16,667 = 75 sc/ha
+  * CONVERSÃO DE COTAÇÃO (campo "Unitário" da coluna Receita):
+    - Se Unitário < 5 (ex: 1,00), está em R$/KG → multiplicar por 60 para obter R$/sc. Exemplo: R$1,00/kg × 60 = R$60/sc
+    - Se Unitário entre 100 e 10.000 (ex: 2.000), está em R$/TON → dividir por 16,667 para obter R$/sc. Exemplo: R$2.000/ton ÷ 16,667 = R$120/sc
+  * custoPorHa: campo "VlrP/HA" ou "Custo(ha)" — valor já em R$/ha, usar direto
   * areaArrendada e custoArrendHa: 0 se não informado
+  * Incluir tanto Renda Efetiva quanto Renda Prevista (todas as safras listadas)
 - Não invente valores. Use apenas o que está no documento.
 
 Retorne APENAS o JSON, sem texto adicional:
