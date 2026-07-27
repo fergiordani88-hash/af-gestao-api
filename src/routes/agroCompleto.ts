@@ -58,7 +58,7 @@ function gerarParcelas(contrato: {
   dataContratacao: Date; valorTomado: number; totalParcelas: number; parcelaAtual: number
   periodicidade: string; taxa: number; vencimento: Date; valorParcela: number
   indexador?: string | null; spreadIndexador?: number | null
-  sistemaAmortizacao?: string | null
+  sistemaAmortizacao?: string | null; tomador?: string | null
 }) {
   const parcelas = []
   const base = new Date(contrato.vencimento)
@@ -131,6 +131,7 @@ function gerarParcelas(contrato: {
       amortizacao:       Math.round(amortReal * 100) / 100,
       juros:             Math.round(juros * 100) / 100,
       saldoDevedor:      Math.round(Math.max(saldo, 0) * 100) / 100,
+      tomador:           contrato.tomador ?? null,
     })
   }
   return parcelas
@@ -405,12 +406,13 @@ router.get('/fluxo-diario/:clientId', async (req: Request, res: Response) => {
 
   // Parcelas dos contratos
   contratos.flatMap(c => gerarParcelas(c)).forEach(p => {
+    const tomadorInfo = p.tomador ? ` [${p.tomador}]` : ''
     movimentos.push({
       data: p.vencimento,
       mov: 'SAÍDA',
       tipo: 'Endividamento',
       origem: p.banco,
-      descricao: `${p.modalidade} ${p.parcelaNum}/${p.totalParcelas} - Contrato ${p.contrato}`,
+      descricao: `${p.modalidade} ${p.parcelaNum}/${p.totalParcelas} - Contrato ${p.contrato}${tomadorInfo}`,
       valor: p.valorParcela,
     })
   })
