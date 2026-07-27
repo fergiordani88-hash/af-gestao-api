@@ -12,6 +12,7 @@ export interface ContractFields {
   taxa?: number              // decimal anual, ex: 0.095
   periodicidade?: string
   obs?: string
+  tomador?: string           // devedor/tomador real (grupo econômico)
   contratos?: ContractFields[] // múltiplos contratos em um PDF
 }
 
@@ -33,14 +34,15 @@ Campos:
 - taxa: taxa de juros ANUAL como decimal (9,5% a.a. → 0.095; se mensal, multiplique por 12 aproximadamente)
 - periodicidade: "Mensal", "Semestral", "Anual", "Trimestral" ou "Único"
 - obs: observações relevantes (ex: indexador CDI, garantias, etc.)
+- tomador: nome do devedor/tomador real do contrato (nome da pessoa física ou empresa que assinou como devedor principal — pode ser diferente do cliente que está consultando). Procure por campos como "Devedor", "Tomador", "Cliente", "Mutuário", "Proponente". Se não encontrar, omita.
 
 Responda APENAS com JSON válido, sem texto antes ou depois.
 
 Se houver UM contrato:
-{"banco":"...","modalidade":"...",...}
+{"banco":"...","modalidade":"...","tomador":"...",...}
 
 Se houver MÚLTIPLOS contratos:
-{"contratos":[{"banco":"..."},{"banco":"..."}]}`
+{"contratos":[{"banco":"...","tomador":"..."},{"banco":"..."}]}`
 
 export async function parsePdfContract(buffer: Buffer): Promise<ContractFields> {
   if (!process.env.ANTHROPIC_API_KEY) {

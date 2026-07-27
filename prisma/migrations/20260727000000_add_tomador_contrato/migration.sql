@@ -1,0 +1,1 @@
+ALTER TABLE "AgroContrato" ADD COLUMN IF NOT EXISTS "tomador" TEXT;
