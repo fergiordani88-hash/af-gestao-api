@@ -614,9 +614,9 @@ router.post('/cadastro/preview', upload.single('pdf'), async (req: Request, res:
   }
 })
 
-// POST /agro/cadastro/confirm — grava patrimônio e produção extraídos
+// POST /agro/cadastro/confirm — grava patrimônio, produção e contratos extraídos
 router.post('/cadastro/confirm', async (req: Request, res: Response) => {
-  const { clientId, patrimonio = [], producao = [] } = req.body
+  const { clientId, patrimonio = [], producao = [], contratos = [] } = req.body
   if (!clientId) return res.status(400).json({ error: 'clientId obrigatório' })
 
   const CATS_VALIDAS = ['Máquinas', 'Equipamentos', 'Veículos', 'Imóveis rurais', 'Imóveis urbanos', 'Rebanho', 'Outros']
@@ -668,12 +668,46 @@ router.post('/cadastro/confirm', async (req: Request, res: Response) => {
     if (r.status === 'rejected') prodErrors.push(`Produção #${i + 1} (${producao[i]?.cultura} ${producao[i]?.safra}): ${(r.reason as Error).message}`)
   })
 
+  const contErrors: string[] = []
+  const contResults = await Promise.allSettled(
+    contratos.map((c: any) => {
+      const dataContratacao = c.dataContratacao ? parseFlexDate(c.dataContratacao) ?? new Date() : new Date()
+      const vencimento = c.vencimento ? parseFlexDate(c.vencimento) ?? new Date() : new Date()
+      const data: any = {
+        clientId,
+        banco:               String(c.banco ?? 'Sicredi').slice(0, 100),
+        modalidade:          String(c.modalidade ?? '').slice(0, 100) || 'Crédito Rural',
+        numeroContrato:      c.numeroContrato ? String(c.numeroContrato).slice(0, 100) : null,
+        dataContratacao,
+        valorTomado:         Number(c.valorTomado) || 0,
+        totalParcelas:       Number(c.totalParcelas) || 1,
+        parcelaAtual:        Number(c.parcelaAtual) || 1,
+        periodicidade:       String(c.periodicidade ?? 'Anual'),
+        taxa:                Number(c.taxa) || 0,
+        vencimento,
+        valorParcela:        Number(c.valorParcela) || 0,
+        sistemaAmortizacao:  c.sistemaAmortizacao ? String(c.sistemaAmortizacao) : 'SAC',
+        tomador:             c.tomador ? String(c.tomador).slice(0, 100) : null,
+      }
+      // SAC pré-fixado: auto-calcula valorParcela atual
+      if (data.sistemaAmortizacao === 'SAC') {
+        data.valorParcela = calcValorParcelaSAC(data)
+      }
+      return prisma.agroContrato.create({ data })
+    })
+  )
+  contResults.forEach((r, i) => {
+    if (r.status === 'rejected') contErrors.push(`Contrato #${i + 1} (${contratos[i]?.numeroContrato}): ${(r.reason as Error).message}`)
+  })
+
   return res.json({
     patrimonioImportado: patResults.filter(r => r.status === 'fulfilled').length,
     patrimonioErros:     patResults.filter(r => r.status === 'rejected').length,
     producaoImportada:   prodResults.filter(r => r.status === 'fulfilled').length,
     producaoErros:       prodResults.filter(r => r.status === 'rejected').length,
-    erros:               [...patErrors, ...prodErrors],
+    contratosImportados: contResults.filter(r => r.status === 'fulfilled').length,
+    contratosErros:      contResults.filter(r => r.status === 'rejected').length,
+    erros:               [...patErrors, ...prodErrors, ...contErrors],
   })
 })
 
