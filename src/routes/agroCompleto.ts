@@ -11,14 +11,14 @@ router.use(requireAuth)
 
 // Taxas de referência vigentes (decimal a.a.) — atualizar conforme divulgação oficial
 const TAXAS_REF: Record<string, number> = {
-  CDI:   0.1475, // Meta SELIC/CDI — COPOM jul/2025
-  SELIC: 0.1475,
+  CDI:   0.1425, // Meta SELIC/CDI — COPOM jul/2026
+  SELIC: 0.1425,
   IPCA:  0.0548, // IPCA acumulado 12 meses jun/2025 — IBGE
   TR:    0.0088, // TR estimada — BACEN jul/2025
 }
 const taxaRef = (idx?: string | null) => TAXAS_REF[idx ?? ''] ?? 0
 
-const CDI_ATUAL = 0.1475 // mantido para compatibilidade
+const CDI_ATUAL = 0.1425 // mantido para compatibilidade
 
 function periodosPorAno(periodicidade: string): number {
   if (periodicidade === 'Mensal')     return 12
@@ -29,11 +29,16 @@ function periodosPorAno(periodicidade: string): number {
 
 function avancaData(base: Date, periodicidade: string, i: number): Date {
   const d = new Date(base)
-  if (periodicidade === 'Mensal')     d.setMonth(d.getMonth() + i)
-  else if (periodicidade === 'Semestral') d.setMonth(d.getMonth() + i * 6)
+  if (periodicidade === 'Mensal')          d.setMonth(d.getMonth() + i)
+  else if (periodicidade === 'Semestral')  d.setMonth(d.getMonth() + i * 6)
   else if (periodicidade === 'Trimestral') d.setMonth(d.getMonth() + i * 3)
   else d.setFullYear(d.getFullYear() + i)
   return d
+}
+
+// Recua n períodos a partir de uma data (para calcular 1ª parcela a partir da última)
+function recuaData(base: Date, periodicidade: string, n: number): Date {
+  return avancaData(base, periodicidade, -n)
 }
 
 // ── Helpers de amortização ──────────────────────────────────────────────────────
@@ -61,7 +66,6 @@ function gerarParcelas(contrato: {
   sistemaAmortizacao?: string | null; tomador?: string | null
 }) {
   const parcelas = []
-  const base = new Date(contrato.vencimento)
   const isPosFix = contrato.indexador && contrato.indexador !== 'Pré-fixado'
   const nPeriodos = periodosPorAno(contrato.periodicidade)
 
@@ -79,6 +83,11 @@ function gerarParcelas(contrato: {
   const k = contrato.parcelaAtual - 1 // parcelas já pagas
   const restantes = n - k
 
+  // vencimento = data da ÚLTIMA parcela (como consta no contrato bancário)
+  // Calcula a data da 1ª parcela recuando (n-1) períodos
+  const ultimaParcela = new Date(contrato.vencimento)
+  const primeiraParcela = recuaData(ultimaParcela, contrato.periodicidade, n - 1)
+
   // Amortização constante (SAC)
   const amortConst = contrato.valorTomado / n
 
@@ -95,7 +104,7 @@ function gerarParcelas(contrato: {
   const pmt = useSAC ? 0 : calcPMT(contrato.valorTomado, taxaPeriodo, n)
 
   for (let i = 0; i < restantes; i++) {
-    const data = avancaData(base, contrato.periodicidade, i)
+    const data = avancaData(primeiraParcela, contrato.periodicidade, k + i)
     const juros = saldo * taxaPeriodo
     let amortReal: number
     let valorParcela: number
