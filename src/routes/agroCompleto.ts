@@ -591,12 +591,18 @@ router.get('/despesas-anuais/:clientId', async (req: Request, res: Response) => 
   res.json(porAno)
 })
 
-// POST /agro/contratos/import-pdf — extrai campos de contrato de crédito de um PDF
+// POST /agro/contratos/import-pdf — extrai TODOS os contratos de um PDF
 router.post('/contratos/import-pdf', upload.single('pdf'), async (req: Request, res: Response) => {
   if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' })
   try {
-    const fields = await parsePdfContract(req.file.buffer)
-    return res.json(fields)
+    const { parseContratos } = await import('../lib/parseContratos')
+    const contratos = await parseContratos(req.file.buffer)
+    if (contratos.length === 0) {
+      // Fallback: tenta o parser legado para PDFs de contrato único
+      const fields = await parsePdfContract(req.file.buffer)
+      return res.json({ contratos: [fields] })
+    }
+    return res.json({ contratos })
   } catch (e: any) {
     return res.status(422).json({ error: 'Erro ao processar PDF: ' + e.message })
   }
