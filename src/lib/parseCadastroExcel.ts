@@ -75,7 +75,7 @@ function sheetToRows(ws: XLSX.WorkSheet): { headers: string[]; rows: Record<stri
 
 // ── Detectores de tipo de planilha ────────────────────────────────────────────
 
-const PAT_KEYS = ['descricao', 'valor avaliado', 'categoria', 'valor alienacao', 'ônus', 'onus', 'matricula', 'benfeitoria']
+const PAT_KEYS = ['descricao', 'valor avaliado', 'categoria', 'valor alienacao', 'ônus', 'onus', 'matricula', 'benfeitoria', 'especif', 'gravame', 'valor r']
 const PROD_KEYS = ['safra', 'cultura', 'produtividade', 'area', 'cotacao', 'custo por ha', 'sc/ha']
 const CONT_KEYS = ['banco', 'modalidade', 'taxa', 'vencimento', 'parcelas', 'valor tomado', 'contrato']
 
@@ -87,8 +87,14 @@ function scoreSheet(headers: string[], keys: string[]): number {
 
 const CAT_MAP: Record<string, PatrimonioImport['categoria']> = {
   'maquina': 'Máquinas', 'maquinas': 'Máquinas', 'trator': 'Máquinas', 'colheitadeira': 'Máquinas',
+  'plantadora': 'Máquinas', 'semeadora': 'Máquinas', 'pulverizador': 'Máquinas',
+  'plataforma': 'Máquinas', 'escarificador': 'Máquinas', 'implemento': 'Máquinas',
   'equipamento': 'Equipamentos', 'equipamentos': 'Equipamentos',
+  'gerador': 'Equipamentos', 'solar': 'Equipamentos', 'fotovoltaico': 'Equipamentos',
+  'irrigacao': 'Equipamentos', 'irrigação': 'Equipamentos', 'usina': 'Equipamentos',
+  'tratador': 'Equipamentos',
   'veiculo': 'Veículos', 'veiculos': 'Veículos', 'caminhao': 'Veículos', 'automovel': 'Veículos',
+  'carregadeira': 'Máquinas',
   'imovel rural': 'Imóveis rurais', 'imoveis rurais': 'Imóveis rurais', 'fazenda': 'Imóveis rurais',
   'imovel urbano': 'Imóveis urbanos', 'imoveis urbanos': 'Imóveis urbanos',
 }
@@ -101,6 +107,21 @@ function parseCategoria(val: any): PatrimonioImport['categoria'] {
   const valid: PatrimonioImport['categoria'][] = ['Máquinas', 'Equipamentos', 'Veículos', 'Imóveis rurais', 'Imóveis urbanos', 'Outros']
   const match = valid.find(v => normalizeHeader(v) === s)
   return match ?? 'Outros'
+}
+
+function parseCategoriaFromDesc(desc: string): PatrimonioImport['categoria'] {
+  const s = normalizeHeader(desc)
+  for (const [k, v] of Object.entries(CAT_MAP)) {
+    if (s.includes(k)) return v
+  }
+  return 'Máquinas'
+}
+
+function parseOnus(val: any): boolean {
+  if (typeof val === 'boolean') return val
+  const s = String(val ?? '').toLowerCase().trim()
+  if (!s || s === 'sem gravame' || s === 'nao' || s === 'não' || s === 'no' || s === 'false' || s === '0') return false
+  return s.length > 0
 }
 
 function pick(row: Record<string, any>, ...keys: string[]): any {
@@ -116,17 +137,47 @@ function pick(row: Record<string, any>, ...keys: string[]): any {
 }
 
 function parsePatrimonioRows(rows: Record<string, any>[]): PatrimonioImport[] {
-  return rows.map(row => ({
-    categoria:    parseCategoria(pick(row, 'categoria', 'tipo', 'classificacao') ?? 'Outros'),
-    descricao:    String(pick(row, 'descricao', 'nome', 'bem', 'item', 'denominacao') ?? '').trim() || 'Sem descrição',
-    identificacao: String(pick(row, 'identificacao', 'serie', 'matricula', 'placa', 'chassi', 'id') ?? '').trim() || undefined,
-    valorAvaliado: parseNum(pick(row, 'valor avaliado', 'valor', 'avaliacao', 'preco')),
-    possuiOnus:   parseBool(pick(row, 'onus', 'alienado', 'possui onus', 'alienacao', 'garantia')),
-    tipoOnus:     String(pick(row, 'tipo onus', 'tipo alienacao', 'tipo garantia') ?? '').trim() || undefined,
-    credor:       String(pick(row, 'credor', 'banco credor', 'financiador') ?? '').trim() || undefined,
-    valorOnus:    parseNum(pick(row, 'valor onus', 'valor alienacao', 'valor garantia')),
-    obs:          String(pick(row, 'obs', 'observacao', 'observacoes', 'nota') ?? '').trim() || undefined,
-  })).filter(p => p.descricao !== 'Sem descrição' || p.valorAvaliado > 0)
+  return rows.map(row => {
+    // Suporta colunas padrão E colunas do formato real (Especificação, Marca, Modelo, etc.)
+    const especif  = String(pick(row, 'especificacao', 'especif', 'descricao', 'nome', 'bem', 'item', 'denominacao') ?? '').trim()
+    const marca    = String(pick(row, 'marca', 'fabricante') ?? '').trim()
+    const modelo   = String(pick(row, 'modelo') ?? '').trim()
+    const ano      = pick(row, 'ano', 'ano fabric')
+    const anoStr   = ano ? ` (${ano})` : ''
+
+    // Monta descrição combinando especificação + marca + modelo
+    let descricao = especif
+    if (marca && marca !== '-') descricao += (descricao ? ' ' : '') + marca
+    if (modelo && modelo !== '-') descricao += (descricao ? ' ' : '') + modelo
+    descricao = descricao.trim() || 'Sem descrição'
+    descricao += anoStr
+
+    // Categoria: tenta campo direto, senão detecta pela descrição
+    const catRaw = pick(row, 'categoria', 'classificacao')
+    const categoria = catRaw
+      ? parseCategoria(catRaw)
+      : parseCategoriaFromDesc(especif)
+
+    // Ônus: suporta "Tipo de Gravame" (Sem gravame / Financiado) e campo booleano
+    const gravameVal = pick(row, 'tipo de gravame', 'gravame', 'tipo gravame', 'tipo onus')
+    const onusBool   = pick(row, 'onus', 'alienado', 'possui onus', 'alienacao')
+    const possuiOnus = gravameVal !== undefined ? parseOnus(gravameVal) : parseBool(onusBool)
+    const tipoOnusStr = gravameVal
+      ? (String(gravameVal).toLowerCase() === 'sem gravame' ? undefined : String(gravameVal).trim())
+      : (String(pick(row, 'tipo onus', 'tipo alienacao', 'tipo garantia') ?? '').trim() || undefined)
+
+    return {
+      categoria,
+      descricao,
+      identificacao: String(pick(row, 'identificacao', 'serie', 'matricula de localizacao', 'matricula', 'placa', 'chassi', 'id') ?? '').trim() || undefined,
+      valorAvaliado: parseNum(pick(row, 'valor r', 'valor avaliado', 'valor', 'avaliacao', 'preco')),
+      possuiOnus,
+      tipoOnus:  tipoOnusStr,
+      credor:    String(pick(row, 'instituicao', 'instituição', 'credor', 'banco credor', 'financiador') ?? '').trim() || undefined,
+      valorOnus: parseNum(pick(row, 'valor a pagar', 'valor onus', 'valor alienacao', 'valor garantia')),
+      obs:       String(pick(row, 'obs', 'observacao', 'observacoes', 'nota', 'estado') ?? '').trim() || undefined,
+    }
+  }).filter(p => p.descricao !== 'Sem descrição' || p.valorAvaliado > 0)
 }
 
 function parseProducaoRows(rows: Record<string, any>[]): ProducaoImport[] {
