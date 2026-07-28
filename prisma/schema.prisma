@@ -288,6 +288,7 @@ model AgroProducao {
   area      Float    @default(0)
   produtividade Float @default(0)
   custoPorHa    Float @default(0)
+  custoItens    Json?  // [{categoria, valorHa, percentual}] — breakdown itemizado do custoPorHa
   areaArrendada Float @default(0)
   custoArrendHa Float @default(0)
   dataPagamento DateTime? // data prevista de pagamento do custo de produção (para fluxo)
