@@ -4,7 +4,15 @@ import { prisma } from '../lib/prisma'
 import { requireAuth } from '../middleware/auth'
 import { parsePdfContract } from '../lib/pdfContractParser'
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } })
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = /pdf|spreadsheet|excel|xlsx|xls|officedocument/i.test(file.mimetype) ||
+               /\.(pdf|xlsx|xls)$/i.test(file.originalname)
+    cb(null, ok)
+  },
+})
 
 const router = Router()
 router.use(requireAuth)
@@ -591,20 +599,28 @@ router.get('/despesas-anuais/:clientId', async (req: Request, res: Response) => 
   res.json(porAno)
 })
 
-// POST /agro/contratos/import-pdf — extrai TODOS os contratos de um PDF
+// POST /agro/contratos/import-pdf — extrai TODOS os contratos de um PDF ou Excel
 router.post('/contratos/import-pdf', upload.single('pdf'), async (req: Request, res: Response) => {
   if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' })
   try {
+    const isExcel = /\.(xlsx|xls)$/i.test(req.file.originalname) ||
+                    /spreadsheet|excel|xlsx/i.test(req.file.mimetype)
+    if (isExcel) {
+      const { parseContratosExcel } = await import('../lib/parseContratosExcel')
+      const contratos = parseContratosExcel(req.file.buffer)
+      if (contratos.length === 0) return res.status(422).json({ error: 'Nenhum contrato encontrado na planilha. Verifique se os cabeçalhos estão corretos.' })
+      return res.json({ contratos })
+    }
+    // PDF
     const { parseContratos } = await import('../lib/parseContratos')
     const contratos = await parseContratos(req.file.buffer)
     if (contratos.length === 0) {
-      // Fallback: tenta o parser legado para PDFs de contrato único
       const fields = await parsePdfContract(req.file.buffer)
       return res.json({ contratos: [fields] })
     }
     return res.json({ contratos })
   } catch (e: any) {
-    return res.status(422).json({ error: 'Erro ao processar PDF: ' + e.message })
+    return res.status(422).json({ error: 'Erro ao processar arquivo: ' + e.message })
   }
 })
 
