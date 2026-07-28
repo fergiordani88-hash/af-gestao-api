@@ -71,7 +71,7 @@ export async function parseContratos(buffer: Buffer): Promise<ContratoExtrato[]>
   const base64 = buffer.toString('base64')
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-5-20251001',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 8000,
     messages: [{
       role: 'user',
