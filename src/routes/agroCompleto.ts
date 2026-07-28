@@ -624,10 +624,18 @@ router.post('/contratos/import-pdf', upload.single('pdf'), async (req: Request, 
   }
 })
 
-// POST /agro/cadastro/preview — lê PDF de cadastro bancário e extrai patrimônio, produção e contratos
+// POST /agro/cadastro/preview — lê PDF ou Excel e extrai patrimônio, produção e contratos
 router.post('/cadastro/preview', upload.single('pdf'), async (req: Request, res: Response) => {
   if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' })
   try {
+    const isExcel = /\.(xlsx|xls)$/i.test(req.file.originalname) ||
+                    /spreadsheet|excel|xlsx/i.test(req.file.mimetype)
+    if (isExcel) {
+      const { parseCadastroExcel } = await import('../lib/parseCadastroExcel')
+      const result = parseCadastroExcel(req.file.buffer)
+      return res.json(result)
+    }
+    // PDF — duas chamadas IA em paralelo
     const { parseCadastroProdutor } = await import('../lib/parseCadastroProdutor')
     const { parseContratos } = await import('../lib/parseContratos')
     const buf = req.file.buffer
@@ -637,7 +645,7 @@ router.post('/cadastro/preview', upload.single('pdf'), async (req: Request, res:
     ])
     return res.json({ ...cadastro, contratos })
   } catch (e: any) {
-    return res.status(422).json({ error: 'Erro ao processar PDF: ' + e.message })
+    return res.status(422).json({ error: 'Erro ao processar arquivo: ' + e.message })
   }
 })
 
