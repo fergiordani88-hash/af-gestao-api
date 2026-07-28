@@ -602,13 +602,18 @@ router.post('/contratos/import-pdf', upload.single('pdf'), async (req: Request, 
   }
 })
 
-// POST /agro/cadastro/preview — lê PDF de cadastro bancário e extrai patrimônio + produção
+// POST /agro/cadastro/preview — lê PDF de cadastro bancário e extrai patrimônio, produção e contratos
 router.post('/cadastro/preview', upload.single('pdf'), async (req: Request, res: Response) => {
   if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' })
   try {
     const { parseCadastroProdutor } = await import('../lib/parseCadastroProdutor')
-    const result = await parseCadastroProdutor(req.file.buffer)
-    return res.json(result)
+    const { parseContratos } = await import('../lib/parseContratos')
+    const buf = req.file.buffer
+    const [cadastro, contratos] = await Promise.all([
+      parseCadastroProdutor(buf),
+      parseContratos(buf),
+    ])
+    return res.json({ ...cadastro, contratos })
   } catch (e: any) {
     return res.status(422).json({ error: 'Erro ao processar PDF: ' + e.message })
   }
