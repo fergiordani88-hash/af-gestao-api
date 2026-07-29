@@ -182,13 +182,29 @@ export function parseContratosExcel(buffer: Buffer): ContratoExtrato[] {
       }
 
       // valorParcela: usa "Próxima parcela" (numérica). Se não veio, cai para saldo devedor como fallback.
-      const valorParcela = parseNumber(raw.valorParcela) || parseNumber(raw._saldoDevedor)
+      const saldoDevedor = parseNumber(raw._saldoDevedor)
+      const valorParcela = parseNumber(raw.valorParcela) || saldoDevedor
 
-      // Indexador e spread: "Taxa contratada" na planilha é o spread para pós-fixados
-      const indexador = raw.indexador ? String(raw.indexador).trim() : undefined
+      // Valor tomado: usa "Valor original". Se vazio/zero, usa saldo devedor (CPR, bullet, sem histórico)
+      const valorTomado = parseNumber(raw.valorTomado) || saldoDevedor
+
+      // Indexador: "mensal" indica taxa expressa ao mês (não é indexador pós-fixado)
+      const indexadorRaw = raw.indexador ? String(raw.indexador).trim().toLowerCase() : ''
+      const isTaxaMensal = indexadorRaw === 'mensal'
+
+      // Periodicidade: detecta pelo nome da modalidade, pela coluna, ou pelo indexador "mensal"
+      const periodicidadeRaw = parsePeriodicidade(raw.periodicidade)
+      // Se indexador = "mensal" OU totalParcelas >= 12 com dado mensal → força Mensal
+      const periodicidade = isTaxaMensal ? 'Mensal' : periodicidadeRaw
+
+      // Indexador e spread: "Taxa contratada" é o spread para pós-fixados; "mensal" não é indexador
+      const indexador = (!isTaxaMensal && raw.indexador) ? String(raw.indexador).trim() : undefined
       const taxaRaw = parseTaxa(raw.taxa)
       const isPosFix = !!indexador && indexador !== 'Pré-fixado'
-      const taxa = isPosFix ? 0 : taxaRaw
+
+      // Para taxa mensal: converte para taxa anual efetiva → (1 + i_mensal)^12 - 1
+      const taxaAnual = isTaxaMensal ? Math.pow(1 + taxaRaw, 12) - 1 : taxaRaw
+      const taxa = isPosFix ? 0 : taxaAnual
       const spreadIndexador = isPosFix ? taxaRaw : 0
 
       // sistemaAmortizacao: pós-fixados sempre SAC; senão detecta pelo nome da modalidade
@@ -202,10 +218,10 @@ export function parseContratosExcel(buffer: Buffer): ContratoExtrato[] {
         modalidade:          String(raw.modalidade ?? 'Crédito Rural').trim() || 'Crédito Rural',
         numeroContrato:      raw.numeroContrato ? String(raw.numeroContrato).trim() : undefined,
         dataContratacao:     parseDate(raw.dataContratacao),
-        valorTomado:         parseNumber(raw.valorTomado),
+        valorTomado,
         totalParcelas:       totalParcelas || 1,
         parcelaAtual:        parcelaAtual || 1,
-        periodicidade:       parsePeriodicidade(raw.periodicidade),
+        periodicidade,
         taxa,
         vencimento:          parseDate(raw.vencimento),
         valorParcela,
