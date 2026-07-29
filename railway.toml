@@ -3,6 +3,6 @@ builder = "nixpacks"
 buildCommand = "npm install && npm run build"
 
 [deploy]
-startCommand = "npx prisma migrate deploy --skip-generate || true && node dist/server.js"
+startCommand = "npx prisma migrate resolve --applied 20260710000000_dre_rural_feijao || true && npx prisma migrate resolve --applied 20260710000001_dre_custo_total || true && npx prisma migrate deploy --skip-generate || true && node dist/server.js"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
