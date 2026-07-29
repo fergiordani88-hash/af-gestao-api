@@ -16,6 +16,8 @@ export interface ContratoExtrato {
   valorParcela: number
   sistemaAmortizacao: string
   tomador?: string
+  indexador?: string
+  spreadIndexador?: number
 }
 
 const PROMPT = `Você é um especialista em extrair dados de contratos bancários rurais brasileiros de PDFs do Sicredi, Banco do Brasil e outros bancos.

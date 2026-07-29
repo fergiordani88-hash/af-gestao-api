@@ -1,25 +1,33 @@
 import * as XLSX from 'xlsx'
 import type { ContratoExtrato } from './parseContratos'
 
+// Campos extras usados internamente durante o parse (não fazem parte de ContratoExtrato)
+interface RawContrato extends ContratoExtrato {
+  _parcelaAtualStr?: string  // "2/3" format from "Próxima parcela (nº/total)"
+  _parcelasRestantes?: number
+  _saldoDevedor?: number
+}
+
 // Mapeia possíveis nomes de coluna para campos do contrato
-const COL_MAP: Record<string, keyof ContratoExtrato> = {
+const COL_MAP: Record<string, keyof RawContrato> = {
   // banco
-  'banco': 'banco', 'bank': 'banco', 'instituição': 'banco', 'instituicao': 'banco',
+  'banco': 'banco', 'bank': 'banco', 'instituicao': 'banco',
   'credor': 'banco', 'fonte': 'banco',
   // modalidade
   'modalidade': 'modalidade', 'produto': 'modalidade', 'linha': 'modalidade',
-  'tipo': 'modalidade', 'product': 'modalidade', 'linha de crédito': 'modalidade',
+  'tipo': 'modalidade', 'product': 'modalidade', 'linha de credito': 'modalidade',
+  'produtomodalidade': 'modalidade', 'produto modalidade': 'modalidade',
   // numeroContrato
-  'contrato': 'numeroContrato', 'número': 'numeroContrato', 'numero': 'numeroContrato',
-  'nº contrato': 'numeroContrato', 'no contrato': 'numeroContrato',
-  'número do contrato': 'numeroContrato', 'numero do contrato': 'numeroContrato',
-  'título': 'numeroContrato', 'titulo': 'numeroContrato', 'cédula': 'numeroContrato',
-  'cedula': 'numeroContrato', 'operação': 'numeroContrato', 'operacao': 'numeroContrato',
+  'contrato': 'numeroContrato', 'numero': 'numeroContrato',
+  'n contrato': 'numeroContrato', 'no contrato': 'numeroContrato',
+  'numero do contrato': 'numeroContrato',
+  'titulo': 'numeroContrato', 'cedula': 'numeroContrato',
+  'operacao': 'numeroContrato',
   // dataContratacao
-  'data contratação': 'dataContratacao', 'data contratacao': 'dataContratacao',
-  'contratação': 'dataContratacao', 'contratacao': 'dataContratacao',
-  'data do contrato': 'dataContratacao', 'data emissão': 'dataContratacao',
-  'data emissao': 'dataContratacao', 'emissão': 'dataContratacao',
+  'data contratacao': 'dataContratacao',
+  'contratacao': 'dataContratacao',
+  'data do contrato': 'dataContratacao', 'data emissao': 'dataContratacao',
+  'emissao': 'dataContratacao',
   // valorTomado
   'valor tomado': 'valorTomado', 'valor financiado': 'valorTomado',
   'valor contrato': 'valorTomado', 'valor do contrato': 'valorTomado',
@@ -28,33 +36,41 @@ const COL_MAP: Record<string, keyof ContratoExtrato> = {
   // totalParcelas
   'total parcelas': 'totalParcelas', 'total de parcelas': 'totalParcelas',
   'parcelas': 'totalParcelas', 'prazo': 'totalParcelas', 'nro parcelas': 'totalParcelas',
-  'nº parcelas': 'totalParcelas', 'quantidade parcelas': 'totalParcelas',
+  'quantidade parcelas': 'totalParcelas',
+  'qtde total de parcelas': 'totalParcelas',
   // parcelaAtual
-  'parcela atual': 'parcelaAtual', 'parcela nº': 'parcelaAtual',
-  'parcela no': 'parcelaAtual', 'parc atual': 'parcelaAtual',
-  'próxima parcela': 'parcelaAtual', 'proxima parcela': 'parcelaAtual',
+  'parcela atual': 'parcelaAtual', 'parc atual': 'parcelaAtual',
+  // "Próxima parcela (nº/total)" → "proxima parcela ntotal" após normalização
+  'proxima parcela ntotal': '_parcelaAtualStr',
+  // parcelas restantes (para calcular parcelaAtual = total - restantes + 1)
+  'parcelas restantes': '_parcelasRestantes',
   // periodicidade
-  'periodicidade': 'periodicidade', 'frequência': 'periodicidade',
-  'frequencia': 'periodicidade', 'período': 'periodicidade', 'periodo': 'periodicidade',
-  // taxa
+  'periodicidade': 'periodicidade', 'frequencia': 'periodicidade',
+  'periodo': 'periodicidade',
+  // taxa nominal / spread
   'taxa': 'taxa', 'juros': 'taxa', 'taxa juros': 'taxa', 'taxa de juros': 'taxa',
   'taxa nominal': 'taxa', 'taxa aa': 'taxa', 'taxa a.a': 'taxa', 'taxa a.a.': 'taxa',
   'juros aa': 'taxa', 'juros a.a.': 'taxa',
+  'taxa contratada': 'taxa',  // planilha Carteira Consolidada (é o spread para pós-fixados)
+  // indexador
+  'indexador': 'indexador',
   // vencimento
   'vencimento': 'vencimento', 'venc': 'vencimento', 'data vencimento': 'vencimento',
-  'data de vencimento': 'vencimento', 'último vencimento': 'vencimento',
-  'ultimo vencimento': 'vencimento', 'vencimento final': 'vencimento',
-  // valorParcela
+  'data de vencimento': 'vencimento', 'ultimo vencimento': 'vencimento',
+  'vencimento final': 'vencimento',
+  // valorParcela — "Próxima parcela" (valor numérico) é a parcela; saldo devedor vai em _saldoDevedor
   'valor parcela': 'valorParcela', 'valor da parcela': 'valorParcela',
-  'parcela': 'valorParcela', 'prestação': 'valorParcela', 'prestacao': 'valorParcela',
-  'saldo devedor': 'valorParcela', 'saldo': 'valorParcela',
+  'prestacao': 'valorParcela',
+  'proxima parcela': 'valorParcela',   // valor numérico da próxima parcela
+  'saldo devedor': '_saldoDevedor',    // não é valorParcela — armazena à parte
+  'saldo': '_saldoDevedor',
   // sistemaAmortizacao
-  'amortização': 'sistemaAmortizacao', 'amortizacao': 'sistemaAmortizacao',
-  'sistema amortização': 'sistemaAmortizacao', 'sistema amortizacao': 'sistemaAmortizacao',
+  'amortizacao': 'sistemaAmortizacao',
+  'sistema amortizacao': 'sistemaAmortizacao',
   'sistema': 'sistemaAmortizacao',
   // tomador
   'tomador': 'tomador', 'devedor': 'tomador', 'cliente': 'tomador',
-  'nome tomador': 'tomador', 'razão social': 'tomador',
+  'nome tomador': 'tomador', 'razao social': 'tomador',
 }
 
 function normalizeHeader(h: string): string {
@@ -127,7 +143,7 @@ export function parseContratosExcel(buffer: Buffer): ContratoExtrato[] {
     }
 
     const headers = rows[headerIdx].map((h: any) => normalizeHeader(String(h)))
-    const fieldMap: Record<number, keyof ContratoExtrato> = {}
+    const fieldMap: Record<number, keyof RawContrato> = {}
     headers.forEach((h, idx) => {
       const field = COL_MAP[h]
       if (field && !(idx in fieldMap)) fieldMap[idx] = field
@@ -147,20 +163,56 @@ export function parseContratosExcel(buffer: Buffer): ContratoExtrato[] {
       // Pula linhas claramente inválidas
       if (!raw.banco && !raw.valorTomado && !raw.modalidade) continue
 
+      // Calcula parcelaAtual:
+      // 1) campo direto, ou
+      // 2) string "2/3" → extrai o numerador, ou
+      // 3) totalParcelas - parcelasRestantes + 1
+      let parcelaAtual = Math.round(parseNumber(raw.parcelaAtual)) || 0
+      if (!parcelaAtual && raw._parcelaAtualStr) {
+        const m = String(raw._parcelaAtualStr).match(/^(\d+)\//)
+        if (m) parcelaAtual = Number(m[1])
+      }
+      let totalParcelas = Math.round(parseNumber(raw.totalParcelas)) || 0
+      if (!totalParcelas && raw._parcelaAtualStr) {
+        const m = String(raw._parcelaAtualStr).match(/\/(\d+)$/)
+        if (m) totalParcelas = Number(m[1])
+      }
+      if (!parcelaAtual && totalParcelas && raw._parcelasRestantes) {
+        parcelaAtual = totalParcelas - Math.round(parseNumber(raw._parcelasRestantes)) + 1
+      }
+
+      // valorParcela: usa "Próxima parcela" (numérica). Se não veio, cai para saldo devedor como fallback.
+      const valorParcela = parseNumber(raw.valorParcela) || parseNumber(raw._saldoDevedor)
+
+      // Indexador e spread: "Taxa contratada" na planilha é o spread para pós-fixados
+      const indexador = raw.indexador ? String(raw.indexador).trim() : undefined
+      const taxaRaw = parseTaxa(raw.taxa)
+      const isPosFix = !!indexador && indexador !== 'Pré-fixado'
+      const taxa = isPosFix ? 0 : taxaRaw
+      const spreadIndexador = isPosFix ? taxaRaw : 0
+
+      // sistemaAmortizacao: pós-fixados sempre SAC; senão detecta pelo nome da modalidade
+      const modalidadeStr = String(raw.modalidade ?? '').toUpperCase()
+      const sistemaRaw = raw.sistemaAmortizacao
+        ? parseSistemaAmort(raw.sistemaAmortizacao)
+        : (isPosFix || modalidadeStr.includes('SAC') ? 'SAC' : 'Price')
+
       contratos.push({
         banco:               String(raw.banco ?? 'Não informado').trim() || 'Não informado',
         modalidade:          String(raw.modalidade ?? 'Crédito Rural').trim() || 'Crédito Rural',
         numeroContrato:      raw.numeroContrato ? String(raw.numeroContrato).trim() : undefined,
         dataContratacao:     parseDate(raw.dataContratacao),
         valorTomado:         parseNumber(raw.valorTomado),
-        totalParcelas:       Math.round(parseNumber(raw.totalParcelas)) || 1,
-        parcelaAtual:        Math.round(parseNumber(raw.parcelaAtual)) || 1,
+        totalParcelas:       totalParcelas || 1,
+        parcelaAtual:        parcelaAtual || 1,
         periodicidade:       parsePeriodicidade(raw.periodicidade),
-        taxa:                parseTaxa(raw.taxa),
+        taxa,
         vencimento:          parseDate(raw.vencimento),
-        valorParcela:        parseNumber(raw.valorParcela),
-        sistemaAmortizacao:  parseSistemaAmort(raw.sistemaAmortizacao),
+        valorParcela,
+        sistemaAmortizacao:  sistemaRaw,
         tomador:             raw.tomador ? String(raw.tomador).trim() : undefined,
+        indexador:           indexador || undefined,
+        spreadIndexador:     spreadIndexador || undefined,
       })
     }
   }
