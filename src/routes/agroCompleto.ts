@@ -166,7 +166,12 @@ router.get('/producao/:clientId', async (req: Request, res: Response) => {
 })
 
 router.post('/producao', async (req: Request, res: Response) => {
-  const item = await prisma.agroProducao.create({ data: req.body })
+  const body = { ...req.body }
+  if (body.dataPagamento && typeof body.dataPagamento === 'string') body.dataPagamento = new Date(body.dataPagamento)
+  else if (!body.dataPagamento) body.dataPagamento = undefined
+  if (body.dataColheita && typeof body.dataColheita === 'string') body.dataColheita = new Date(body.dataColheita)
+  else if (!body.dataColheita) body.dataColheita = undefined
+  const item = await prisma.agroProducao.create({ data: body })
   res.status(201).json(item)
 })
 
@@ -174,6 +179,13 @@ router.put('/producao/:id', async (req: Request, res: Response) => {
   const body = { ...req.body }
   if (body.dataPagamento && typeof body.dataPagamento === 'string') {
     body.dataPagamento = new Date(body.dataPagamento)
+  } else if (body.dataPagamento === '' || body.dataPagamento === null) {
+    body.dataPagamento = null
+  }
+  if (body.dataColheita && typeof body.dataColheita === 'string') {
+    body.dataColheita = new Date(body.dataColheita)
+  } else if (body.dataColheita === '' || body.dataColheita === null) {
+    body.dataColheita = null
   }
   const item = await prisma.agroProducao.update({ where: { id: req.params.id }, data: body })
   res.json(item)
