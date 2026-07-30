@@ -276,8 +276,9 @@ router.get('/cronograma/:clientId', async (req: Request, res: Response) => {
     porAno[ano].amortizacao += p.amortizacao ?? 0
   })
 
-  // Total endividamento
-  const totalEndividamento = contratos.reduce((s, c) => s + c.valorTomado, 0)
+  // Saldo devedor atual = soma das amortizações (principal) de todas as parcelas futuras
+  // Usar valorTomado seria errado — ignora pagamentos já realizados
+  const totalEndividamento = todasParcelas.reduce((s, p) => s + (p.amortizacao ?? 0), 0)
   const totalFuturo = todasParcelas.reduce((s, p) => s + p.valorParcela, 0)
 
   res.json({
