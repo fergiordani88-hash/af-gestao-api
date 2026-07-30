@@ -91,25 +91,38 @@ function gerarParcelas(contrato: {
   const k = contrato.parcelaAtual - 1 // parcelas já pagas
   const restantes = n - k
 
+  // Fallback: valorTomado ausente mas valorParcela preenchido (ex: CPR, bullet importado sem principal)
+  // SAC: parcela ≈ amort + juros → estima pelo saldo restante × parcelas restantes
+  // Price: PV da anuidade
+  const valorTomadoEfetivo = contrato.valorTomado > 0
+    ? contrato.valorTomado
+    : contrato.valorParcela > 0
+      ? (useSAC
+          ? contrato.valorParcela * restantes  // restantes × parcela ≈ saldo devedor residual
+          : calcPMT(1, taxaPeriodo, n) > 0
+            ? contrato.valorParcela / calcPMT(1, taxaPeriodo, n)
+            : contrato.valorParcela * n)
+      : 0
+
   // vencimento = data da ÚLTIMA parcela (como consta no contrato bancário)
   // Calcula a data da 1ª parcela recuando (n-1) períodos
   const ultimaParcela = new Date(contrato.vencimento)
   const primeiraParcela = recuaData(ultimaParcela, contrato.periodicidade, n - 1)
 
   // Amortização constante (SAC)
-  const amortConst = contrato.valorTomado / n
+  const amortConst = valorTomadoEfetivo / n
 
   // Saldo devedor no início da parcela atual
   let saldo: number
   if (useSAC) {
-    saldo = contrato.valorTomado - amortConst * k
+    saldo = valorTomadoEfetivo - amortConst * k
   } else {
     // Price: saldo descontado pela fórmula financeira
-    saldo = saldoPrice(contrato.valorTomado, taxaPeriodo, n, k)
+    saldo = saldoPrice(valorTomadoEfetivo, taxaPeriodo, n, k)
   }
 
   // PMT para Price (constante)
-  const pmt = useSAC ? 0 : calcPMT(contrato.valorTomado, taxaPeriodo, n)
+  const pmt = useSAC ? 0 : calcPMT(valorTomadoEfetivo, taxaPeriodo, n)
 
   for (let i = 0; i < restantes; i++) {
     const data = avancaData(primeiraParcela, contrato.periodicidade, k + i)
