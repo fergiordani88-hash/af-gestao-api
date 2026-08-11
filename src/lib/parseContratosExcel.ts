@@ -38,8 +38,10 @@ const COL_MAP: Record<string, keyof RawContrato> = {
   'parcelas': 'totalParcelas', 'prazo': 'totalParcelas', 'nro parcelas': 'totalParcelas',
   'quantidade parcelas': 'totalParcelas',
   'qtde total de parcelas': 'totalParcelas',
+  'total parc.': 'totalParcelas',  // header gerado por exportarCSV (TabContratos.tsx)
   // parcelaAtual
   'parcela atual': 'parcelaAtual', 'parc atual': 'parcelaAtual',
+  'parc. atual': 'parcelaAtual',  // header gerado por exportarCSV (TabContratos.tsx)
   // "Próxima parcela (nº/total)" → "proxima parcela ntotal" após normalização
   'proxima parcela ntotal': '_parcelaAtualStr',
   // parcelas restantes (para calcular parcelaAtual = total - restantes + 1)
@@ -52,6 +54,7 @@ const COL_MAP: Record<string, keyof RawContrato> = {
   'taxa nominal': 'taxa', 'taxa aa': 'taxa', 'taxa a.a': 'taxa', 'taxa a.a.': 'taxa',
   'juros aa': 'taxa', 'juros a.a.': 'taxa',
   'taxa contratada': 'taxa',  // planilha Carteira Consolidada (é o spread para pós-fixados)
+  'taxa nominal aa': 'taxa',  // header "Taxa Nominal (%aa)" gerado por exportarCSV (TabContratos.tsx)
   // indexador
   'indexador': 'indexador',
   // vencimento
@@ -62,6 +65,7 @@ const COL_MAP: Record<string, keyof RawContrato> = {
   'valor parcela': 'valorParcela', 'valor da parcela': 'valorParcela',
   'prestacao': 'valorParcela',
   'proxima parcela': 'valorParcela',   // valor numérico da próxima parcela
+  'parc. nominal': 'valorParcela',     // header gerado por exportarCSV (TabContratos.tsx)
   'saldo devedor': '_saldoDevedor',    // não é valorParcela — armazena à parte
   'saldo': '_saldoDevedor',
   // sistemaAmortizacao
