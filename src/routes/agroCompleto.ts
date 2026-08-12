@@ -28,6 +28,16 @@ const taxaRef = (idx?: string | null) => TAXAS_REF[idx ?? ''] ?? 0
 
 const CDI_ATUAL = 0.1425 // mantido para compatibilidade
 
+// Compara indexador ignorando acento/hífen/caixa: fontes variam entre "Pré-fixado",
+// "Prefixado", "PREFIXADO" etc. Comparar com a string exata 'Pré-fixado' fazia contratos
+// pré-fixados sem acento caírem no ramo pós-fixado, zerando a taxa (taxaRef não reconhece
+// "Prefixado" como indexador válido).
+function isPosFixado(indexador?: string | null): boolean {
+  if (!indexador) return false
+  const norm = indexador.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/gi, '').toLowerCase()
+  return norm !== 'prefixado'
+}
+
 function periodosPorAno(periodicidade: string): number {
   if (periodicidade === 'Mensal')     return 12
   if (periodicidade === 'Semestral')  return 2
@@ -74,7 +84,7 @@ function gerarParcelas(contrato: {
   sistemaAmortizacao?: string | null; tomador?: string | null
 }) {
   const parcelas = []
-  const isPosFix = contrato.indexador && contrato.indexador !== 'Pré-fixado'
+  const isPosFix = isPosFixado(contrato.indexador)
   const nPeriodos = periodosPorAno(contrato.periodicidade)
 
   // Taxa anual efetiva: pós-fixado = spread + índice de referência; pré-fixado = taxa contratual
@@ -255,7 +265,7 @@ router.post('/contratos', async (req: Request, res: Response) => {
   data.vencimento = data.vencimento ? parseFlexDate(data.vencimento) ?? new Date() : new Date()
   if (data.parcelaAtual === undefined || data.parcelaAtual === null) data.parcelaAtual = 1
   // SAC pré-fixado: auto-calcula a parcela atual pela fórmula
-  const isPosFix = data.indexador && data.indexador !== 'Pré-fixado'
+  const isPosFix = isPosFixado(data.indexador)
   if (data.sistemaAmortizacao === 'SAC' && !isPosFix) {
     data.valorParcela = calcValorParcelaSAC(data)
   }
@@ -268,7 +278,7 @@ router.put('/contratos/:id', async (req: Request, res: Response) => {
   if (data.dataContratacao) data.dataContratacao = new Date(data.dataContratacao)
   if (data.vencimento) data.vencimento = new Date(data.vencimento)
   // SAC pré-fixado: re-calcula a parcela atual ao editar
-  const isPosFix = data.indexador && data.indexador !== 'Pré-fixado'
+  const isPosFix = isPosFixado(data.indexador)
   if (data.sistemaAmortizacao === 'SAC' && !isPosFix) {
     data.valorParcela = calcValorParcelaSAC(data)
   }
