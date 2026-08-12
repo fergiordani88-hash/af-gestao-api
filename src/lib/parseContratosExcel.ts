@@ -12,7 +12,7 @@ interface RawContrato extends ContratoExtrato {
 const COL_MAP: Record<string, keyof RawContrato> = {
   // banco
   'banco': 'banco', 'bank': 'banco', 'instituicao': 'banco',
-  'credor': 'banco', 'fonte': 'banco',
+  'credor': 'banco', 'fonte': 'banco', 'bancoif': 'banco',
   // modalidade
   'modalidade': 'modalidade', 'produto': 'modalidade', 'linha': 'modalidade',
   'tipo': 'modalidade', 'product': 'modalidade', 'linha de credito': 'modalidade',
@@ -55,12 +55,13 @@ const COL_MAP: Record<string, keyof RawContrato> = {
   'juros aa': 'taxa', 'juros a.a.': 'taxa',
   'taxa contratada': 'taxa',  // planilha Carteira Consolidada (é o spread para pós-fixados)
   'taxa nominal aa': 'taxa',  // header "Taxa Nominal (%aa)" gerado por exportarCSV (TabContratos.tsx)
+  'taxa a.a. equiv.': 'taxa', // coluna ja anualizada e numerica - preferida sobre "Taxa" (texto livre "5.23% a.a.")
   // indexador
   'indexador': 'indexador',
   // vencimento
   'vencimento': 'vencimento', 'venc': 'vencimento', 'data vencimento': 'vencimento',
   'data de vencimento': 'vencimento', 'ultimo vencimento': 'vencimento',
-  'vencimento final': 'vencimento',
+  'vencimento final': 'vencimento', 'prox. vencimento': 'vencimento', 'proximo vencimento': 'vencimento',
   // valorParcela — "Próxima parcela" (valor numérico) é a parcela; saldo devedor vai em _saldoDevedor
   'valor parcela': 'valorParcela', 'valor da parcela': 'valorParcela',
   'prestacao': 'valorParcela',
@@ -80,6 +81,7 @@ const COL_MAP: Record<string, keyof RawContrato> = {
 function normalizeHeader(h: string): string {
   return h.toLowerCase().trim()
     .normalize('NFD').replace(/[̀-ͯ]/g, '') // remove acentos
+    .replace(/r\$/g, '') // remove marcador de moeda "R$" (ex: "Saldo Devedor (R$)" -> "saldo devedor")
     .replace(/[^a-z0-9 .]/g, '')
     .trim()
 }
@@ -102,7 +104,13 @@ function parseDate(val: any): string {
 
 function parseNumber(val: any): number {
   if (typeof val === 'number') return val
-  const s = String(val ?? '').replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.')
+  let s = String(val ?? '').replace(/[R$\s]/g, '')
+  // Só assume formato brasileiro (1.234,56 -> milhar+decimal) quando ha VIRGULA de fato.
+  // Sem virgula, o ponto (se houver) e decimal (ex: "5.23% a.a." vindo de planilha
+  // gerada em Python/Excel en-US) - remover o ponto ali corrompia a taxa em ~100x.
+  if (s.includes(',')) {
+    s = s.replace(/\./g, '').replace(',', '.')
+  }
   return parseFloat(s) || 0
 }
 
@@ -184,6 +192,12 @@ export function parseContratosExcel(buffer: Buffer): ContratoExtrato[] {
       if (!parcelaAtual && totalParcelas && raw._parcelasRestantes) {
         parcelaAtual = totalParcelas - Math.round(parseNumber(raw._parcelasRestantes)) + 1
       }
+      // Planilha só tem "parcelas restantes" (sem total) — melhor aproximação possível é
+      // tratar as restantes como o total ainda a pagar e parcelaAtual=1, em vez de 1/1 fixo.
+      if (!totalParcelas && !parcelaAtual && raw._parcelasRestantes) {
+        totalParcelas = Math.round(parseNumber(raw._parcelasRestantes)) || 0
+        if (totalParcelas) parcelaAtual = 1
+      }
 
       // valorParcela: usa "Próxima parcela" (numérica). Se não veio, cai para saldo devedor como fallback.
       const saldoDevedor = parseNumber(raw._saldoDevedor)
@@ -204,7 +218,9 @@ export function parseContratosExcel(buffer: Buffer): ContratoExtrato[] {
       // Indexador e spread: "Taxa contratada" é o spread para pós-fixados; "mensal" não é indexador
       const indexador = (!isTaxaMensal && raw.indexador) ? String(raw.indexador).trim() : undefined
       const taxaRaw = parseTaxa(raw.taxa)
-      const isPosFix = !!indexador && indexador !== 'Pré-fixado'
+      // Compara ignorando acento/hífen/caixa: fontes variam entre "Pré-fixado", "Prefixado", "PREFIXADO" etc.
+      const indexadorNorm = (indexador ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/gi, '').toLowerCase()
+      const isPosFix = !!indexador && indexadorNorm !== 'prefixado'
 
       // Para taxa mensal: converte para taxa anual efetiva → (1 + i_mensal)^12 - 1
       const taxaAnual = isTaxaMensal ? Math.pow(1 + taxaRaw, 12) - 1 : taxaRaw
