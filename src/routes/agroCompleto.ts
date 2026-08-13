@@ -23,8 +23,18 @@ const TAXAS_REF: Record<string, number> = {
   SELIC: 0.1425,
   IPCA:  0.0548, // IPCA acumulado 12 meses jun/2025 — IBGE
   TR:    0.0088, // TR estimada — BACEN jul/2025
+  'USD (moeda estrangeira)': 0.0130, // Variação PTAX dólar venda, BCB SGS série 1, 16/jul a 12/ago/2026 (R$5,0975 → R$5,1639)
 }
-const taxaRef = (idx?: string | null) => TAXAS_REF[idx ?? ''] ?? 0
+// Indexadores sem taxa de referência cadastrada caíam silenciosamente em 0% (contrato
+// tratado como sem custo). Agora fica visível no log do servidor — ainda usa 0 como
+// valor (não há alternativa segura sem uma referência real), mas não passa despercebido.
+const taxaRef = (idx?: string | null) => {
+  const key = idx ?? ''
+  if (key && !(key in TAXAS_REF)) {
+    console.warn(`[agroCompleto] indexador "${key}" pós-fixado sem taxa de referência cadastrada — usando 0% a.a.`)
+  }
+  return TAXAS_REF[key] ?? 0
+}
 
 const CDI_ATUAL = 0.1425 // mantido para compatibilidade
 
