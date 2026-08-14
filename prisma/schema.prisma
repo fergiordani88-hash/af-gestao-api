@@ -74,6 +74,8 @@ model Client {
   pjInadimplencias        PJInadimplencia[]
   agroHistoricoSafras     AgroHistoricoSafra[]
   agroDRERurais           AgroDRERural[]
+  agroPecuariaLotes       AgroPecuariaLote[]
+  agroPecuariaConfig      AgroPecuariaConfig?
   questionarioPJ          QuestionarioPJ?
   questionarioAgro        QuestionarioAgro?
   metas                   Meta[]
@@ -320,6 +322,81 @@ model AgroContrato {
   obs           String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+// Pecuária — lote de rebanho (uma linha por lote de animais)
+model AgroPecuariaLote {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  categoria       String   // ver CategoriaAnimal no frontend (bezerro_m, vaca_prenha, boi_gordo, etc)
+  quantidade      Int
+  idadeMediaMeses Float
+  pesoMedioKg     Float
+  raca            String?
+  obs             String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Pecuária — configuração única por cliente (manejo forrageiro + parâmetros zootécnicos + custos)
+model AgroPecuariaConfig {
+  id       String @id @default(cuid())
+  clientId String @unique
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Manejo forrageiro
+  sistema           String  @default("extensivo") // extensivo | suplementado | rotacionado | semiconfinamento | confinamento
+  areaTotal         Float   @default(0)
+  forrageira        String  @default("marandu")
+  lotacaoReferencia Float   @default(1.2)
+  fatorSeca         Float   @default(0.5)
+  estadoPasto       String  @default("bom") // otimo | bom | degradado | muito_degradado
+  silagem           Float?
+  rotacao           Json?   // RotacaoConfig | null — piquetes, dias ocupação/descanso
+  suplementos       Json    @default("[]") // SuplementoItem[]
+
+  // Parâmetros zootécnicos
+  ciclo                   String  @default("cria_recria_engorda")
+  taxaPrenhez             Float   @default(78)
+  taxaNatalidade          Float   @default(75)
+  taxaMortalidadeBezerro  Float   @default(4)
+  taxaDesmame             Float   @default(72)
+  idadeDesmameMeses       Float   @default(7)
+  pesoDesmameKg           Float   @default(190)
+  pesoAbateKg             Float   @default(490)
+  rendimentoCarcaca       Float   @default(53)
+  arrobasAbate            Float   @default(17)
+  idadeAbateMeses         Float   @default(36)
+  taxaDescarteAnual       Float   @default(12)
+  diasConfinamento        Float   @default(100)
+  ganhoMedioDiario        Float   @default(1.3)
+  praca                   String  @default("Rondonópolis")
+  precoBoiGordoArroba     Float   @default(320)
+  precoBezerroCabeca      Float   @default(2200)
+  precoGarroteCabeca      Float   @default(3500)
+  precoVacaDescarteCabeca Float   @default(2800)
+  dataPrecos              String?
+
+  // Custos
+  vacinacaoAftosaAnoCab   Float @default(12)
+  vacinacaoBrucelaAnoCab  Float @default(4)
+  vermifugacaoAnoCab      Float @default(8)
+  outrosSanidadeAnoCab    Float @default(6)
+  manutencaoPastagemHaAno Float @default(80)
+  reformaPastagemHa       Float @default(1200)
+  percentualReformaAno    Float @default(5)
+  areaArrendadaHa         Float @default(0)
+  custoArrendamentoHaAno  Float @default(0)
+  numFuncionarios         Int   @default(1)
+  salarioMedioMensal      Float @default(2400)
+  encargosPct             Float @default(33)
+  combustivelMensal       Float @default(800)
+  manutencaoEquipMensal   Float @default(400)
+  outrosMensal            Float @default(300)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Despesas não bancárias

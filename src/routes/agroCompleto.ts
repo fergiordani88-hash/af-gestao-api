@@ -438,6 +438,41 @@ router.delete('/patrimonio/:id', async (req: Request, res: Response) => {
 })
 
 // ─────────────────────────────────────────────
+// PECUÁRIA — lotes de rebanho + configuração (manejo/parâmetros/custos)
+// ─────────────────────────────────────────────
+router.get('/pecuaria/:clientId', async (req: Request, res: Response) => {
+  const [lotes, config] = await Promise.all([
+    prisma.agroPecuariaLote.findMany({ where: { clientId: req.params.clientId }, orderBy: { categoria: 'asc' } }),
+    prisma.agroPecuariaConfig.findUnique({ where: { clientId: req.params.clientId } }),
+  ])
+  res.json({ lotes, config })
+})
+
+router.put('/pecuaria/:clientId/config', async (req: Request, res: Response) => {
+  const config = await prisma.agroPecuariaConfig.upsert({
+    where: { clientId: req.params.clientId },
+    create: { clientId: req.params.clientId, ...req.body },
+    update: req.body,
+  })
+  res.json(config)
+})
+
+router.post('/pecuaria/lotes', async (req: Request, res: Response) => {
+  const lote = await prisma.agroPecuariaLote.create({ data: req.body })
+  res.status(201).json(lote)
+})
+
+router.put('/pecuaria/lotes/:id', async (req: Request, res: Response) => {
+  const lote = await prisma.agroPecuariaLote.update({ where: { id: req.params.id }, data: req.body })
+  res.json(lote)
+})
+
+router.delete('/pecuaria/lotes/:id', async (req: Request, res: Response) => {
+  await prisma.agroPecuariaLote.delete({ where: { id: req.params.id } })
+  res.status(204).send()
+})
+
+// ─────────────────────────────────────────────
 // FLUXO DE CAIXA DIÁRIO — combina tudo automaticamente
 // ─────────────────────────────────────────────
 // Gera datas mensais de vencimento para um custo fixo — 24 meses a partir de hoje
