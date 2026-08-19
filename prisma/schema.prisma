@@ -319,6 +319,7 @@ model AgroContrato {
   spreadIndexador    Float?   @default(0)
   sistemaAmortizacao String?  @default("Price")
   tomador       String?  // Nome do tomador real (grupo econômico)
+  saldoAtual    Float?   // Saldo real atual (conforme extrato do banco) — substitui valorTomado nos cálculos de juros
   obs           String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

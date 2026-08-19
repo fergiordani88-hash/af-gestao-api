@@ -91,7 +91,7 @@ function gerarParcelas(contrato: {
   dataContratacao: Date; valorTomado: number; totalParcelas: number; parcelaAtual: number
   periodicidade: string; taxa: number; vencimento: Date; valorParcela: number
   indexador?: string | null; spreadIndexador?: number | null
-  sistemaAmortizacao?: string | null; tomador?: string | null
+  sistemaAmortizacao?: string | null; tomador?: string | null; saldoAtual?: number | null
 }) {
   const parcelas = []
   const isPosFix = isPosFixado(contrato.indexador)
@@ -111,18 +111,20 @@ function gerarParcelas(contrato: {
   const k = contrato.parcelaAtual - 1 // parcelas já pagas
   const restantes = n - k
 
-  // Fallback: valorTomado ausente mas valorParcela preenchido (ex: CPR, bullet importado sem principal)
-  // SAC: parcela ≈ amort + juros → estima pelo saldo restante × parcelas restantes
-  // Price: PV da anuidade
-  const valorTomadoEfetivo = contrato.valorTomado > 0
-    ? contrato.valorTomado
-    : contrato.valorParcela > 0
-      ? (useSAC
-          ? contrato.valorParcela * restantes  // restantes × parcela ≈ saldo devedor residual
-          : calcPMT(1, taxaPeriodo, n) > 0
-            ? contrato.valorParcela / calcPMT(1, taxaPeriodo, n)
-            : contrato.valorParcela * n)
-      : 0
+  // Se saldoAtual informado, usar como base dos cálculos (saldo real do banco).
+  // Caso contrário, fallback para valorTomado (ou estimativa via valorParcela).
+  const baseCalculo = (contrato.saldoAtual != null && contrato.saldoAtual > 0)
+    ? contrato.saldoAtual
+    : contrato.valorTomado > 0
+      ? contrato.valorTomado
+      : contrato.valorParcela > 0
+        ? (useSAC
+            ? contrato.valorParcela * restantes
+            : calcPMT(1, taxaPeriodo, n) > 0
+              ? contrato.valorParcela / calcPMT(1, taxaPeriodo, n)
+              : contrato.valorParcela * n)
+        : 0
+  const valorTomadoEfetivo = baseCalculo
 
   // vencimento = data da ÚLTIMA parcela (como consta no contrato bancário)
   // Calcula a data da 1ª parcela recuando (n-1) períodos
